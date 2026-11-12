@@ -1,0 +1,16 @@
+{
+  "cjk": {
+    "source_sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+    "sha256": "21d7913e6ccc17d4f37e35a65d48795f5bdbd199220712254fe9146b1c3cda96",
+    "bytes": 5125208,
+    "ranges": "0x3000-0x30ff,0x3400-0x4dbf,0x4e00-0x9fff,0xff00-0xffef",
+    "source": "https://github.com/google/fonts/tree/main/ofl/notosanssc"
+  },
+  "emoji": {
+    "source_sha256": "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551",
+    "sha256": "b960e3196cb8d9b8753478e66565df5eddfbe52c9e322f1784c85a303ed23f5a",
+    "bytes": 299760,
+    "ranges": "0x2300-0x23ff,0x2600-0x27bf,0x1f000-0x1faff",
+    "source": "https://github.com/google/fonts/tree/main/ofl/notoemoji"
+  }
+}

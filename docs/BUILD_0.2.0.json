@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "idf": "5.4.4",
+  "flashed": true,
+  "host_tests": "passed; tests/run_all.py plus large streaming and final UI regressions",
+  "artifacts": [
+    {
+      "offset": 8192,
+      "file": "bootloader.bin",
+      "size": 21200,
+      "sha256": "d1f24bfbc0a8f0779f17bd425c2fd45a63be31af74feb693d55c9af54f8847b8"
+    },
+    {
+      "offset": 131072,
+      "file": "tab5_launcher.bin",
+      "size": 1504480,
+      "sha256": "821f7e4d42826bbf6f2b9afb74182d563be01d98c6a1f91b6997206cbd0a0ba8"
+    }
+  ],
+  "hardware_validation": "Boot 0.2.0 ready, two OTA slots enumerated, RTC read, INA226 read. User-flow validation remains pending.",
+  "startup_fix": {
+    "ui_cache_bytes_in_psram": 21172,
+    "internal_free_at_ready": 290703
+  }
+}

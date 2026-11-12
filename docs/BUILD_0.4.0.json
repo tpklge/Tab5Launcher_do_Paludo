@@ -1,0 +1,62 @@
+{
+  "version": "0.4.0",
+  "date": "2026-11-11",
+  "flashed": true,
+  "offset": "0x20000",
+  "app_size": 1862224,
+  "app_sha256": "179754ea93f3b821d948c619603fd789ca078dd6602edac5a329a8e203e2f103",
+  "partition_table_changed": false,
+  "backup": "recovery/tab5-before-0.4.0.bin",
+  "boot_verified": true,
+  "sd_assets": [
+    "index.html",
+    "style.css",
+    "app.js",
+    "transfers.js"
+  ],
+  "tests_host": "ASan/UBSan full suite passed",
+  "tests_browser": "1280/768/390/320px; folder, empty, retry, cookie reload",
+  "partition_editor_hardware_applied": false,
+  "startup_memory_fix": "diagnostic ring 8192 bytes moved to PSRAM; global low DRAM budget gate added",
+  "saved_wifi_reconnected": true,
+  "sd_assets_verified": [
+    {
+      "file": "index.html",
+      "sha256": "c943091ca1b0e6e21897aa03c4291cdcb336b49f89a059bbc4723f23343801a9",
+      "verified": true
+    },
+    {
+      "file": "style.css",
+      "sha256": "d8b9eddfc6a7fea4a2b3334c112e386d3ddf23638426e6227088ff9ec094384b",
+      "verified": true
+    },
+    {
+      "file": "app.js",
+      "sha256": "6a32ce547e5230107f26bff78bc465c06e401ff4b841d6c4997d6b794f96a5cb",
+      "verified": true
+    },
+    {
+      "file": "transfers.js",
+      "sha256": "4bd6cc0cf6b188ab491b011cf0777dc682215aea20aa01d682e2739b47f917ca",
+      "verified": true
+    }
+  ],
+  "ota_hardware": [
+    {
+      "seconds": 86.639,
+      "result": {
+        "error": 0,
+        "message": "Catalogo valido: 85 firmware(s)"
+      }
+    },
+    {
+      "seconds": 0.359,
+      "result": {
+        "error": 0,
+        "message": "Catalogo valido: 85 firmware(s)"
+      }
+    }
+  ],
+  "web_http_hardware": "Not reached: host 192.168.123.x and device 192.168.137.x; connection timed out. Browser/UI/API doubles tested locally.",
+  "serial_monitor": "/tmp/tab5-040-final-monitor.log"
+}

@@ -1,0 +1,21 @@
+{
+  "version": "0.7.2",
+  "recorded_at": "2026-11-12T03:46:54.275654-04:00",
+  "flashed": false,
+  "reason_not_flashed": "User is observing the installed 0.7.1; no reset or new flash during that observation.",
+  "firmware_bytes": 1993248,
+  "firmware_sha256": "38860713b1c8d5ac656945ddfd06c2c393b8c7ab8efceb8540e19b708da451d6",
+  "fits_installed_factory": true,
+  "validation": {
+    "build": "passed",
+    "startup_memory": "0x4ff1ede0; within budget",
+    "largest_non_worker_frame_bytes": 2352,
+    "reproduced_before_fix": "EVENT-mode pointer read timer remained paused after waking the overlay",
+    "after_fix": "16 pointer press/release cases, four clock styles, 100 idle lifecycles passed ASan/UBSan; unchanged clock/date causes no invalidation",
+    "hardware": "pending flash after user observation"
+  },
+  "changes": [
+    "Explicitly poll until finger release after dismissing idle overlay in EVENT input mode",
+    "Only update clock/date and analog hands when their displayed values change"
+  ]
+}

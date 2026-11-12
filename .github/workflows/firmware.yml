@@ -1,0 +1,38 @@
+name: Firmware and host regressions
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.4.4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies for host checks
+        run: apt-get update && apt-get install -y build-essential libssl-dev cmake
+      - name: ESP32-P4 build and memory gates
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py -DTAB5_UI_NAV_SELFTEST=OFF build
+          python tools/check_startup_memory.py
+          python tools/check_ui_stack.py
+          python tools/check_no_nvs.py
+      - name: Host regression suite
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          python tests/run_all.py
+      - name: Package initial install and preserving update separately
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          python tools/package_firmware.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tab5-launcher
+          path: |
+            dist/
+            build/tab5_launcher.elf
+          retention-days: 14

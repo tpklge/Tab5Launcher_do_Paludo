@@ -1,0 +1,113 @@
+{
+  "version": "0.7.1",
+  "recorded_at": "2026-11-12T03:35:44.553959-04:00",
+  "firmware": {
+    "bytes": 1993136,
+    "sha256": "5a0e4d3bd7d574014dc09747251ce05dfec89f7c5deac35ab084a6de927fa202",
+    "flash_offset": 131072,
+    "factory_bytes": 2031616,
+    "flash_hash_verified": true
+  },
+  "changes": [
+    "USB MSC 512 -> 2048-byte buffer",
+    "USB enumeration before display initialization",
+    "Backlight hold across controlled restart; reveal after first rendered frame",
+    "MSC detach/uninstall before Serial/JTAG restoration; exit in main loop",
+    "Portuguese weekday and long date, large centered clock/date, ASCII + Latin fallback",
+    "Five additional themes available in native UI, JSON and SD WebGUI",
+    "Wi-Fi scan result caches in PSRAM"
+  ],
+  "validation": {
+    "host": "All regressions passed, including 9 theme options, new theme JSON persistence, 12 month names, accented weekdays, bounded date formatting and 100 idle overlay lifecycles",
+    "memory": "Heap starts 0x4ff1ede0; startup budget passes; 43988 bytes UI caches in PSRAM",
+    "ui_stack": "Largest non-worker frame 2352 bytes",
+    "physical_themes": [
+      {
+        "theme": "ocean",
+        "saved": true
+      },
+      {
+        "theme": "forest",
+        "saved": true
+      },
+      {
+        "theme": "sunset",
+        "saved": true
+      },
+      {
+        "theme": "lavender",
+        "saved": true
+      },
+      {
+        "theme": "sand",
+        "saved": true
+      }
+    ],
+    "settings_restored": true,
+    "first_msc_transfer": {
+      "entry_acknowledged": true,
+      "disk": "disk4",
+      "host_visible_seconds": 13.22,
+      "transfer_bytes": 2097152,
+      "write_seconds_including_sync": 3.578,
+      "read_seconds_no_cache": 2.353,
+      "sha256_verified": true,
+      "only_test_file_removed": true,
+      "ejected_before_exit": true
+    },
+    "first_return": "SW_RESET and normal launcher confirmed only after resetting the USB link on the computer. Final code adds MSC detach/uninstall before console restoration; retest below.",
+    "final_msc_transfer": {
+      "entry_acknowledged": true,
+      "disk": "disk4",
+      "host_visible_seconds": 12.97,
+      "transfer_bytes": 2097152,
+      "write_seconds_including_sync": 3.495,
+      "read_seconds_no_cache": 2.38,
+      "sha256_verified": true,
+      "only_test_file_removed": true,
+      "ejected_before_exit": true
+    },
+    "final_return": {
+      "status": {
+        "error": 0,
+        "version": "0.7.1",
+        "reset": "SW_RESET",
+        "internalFree": 107495,
+        "psramFree": 20925884,
+        "sd": true,
+        "upload": false,
+        "internalLargest": 63488,
+        "internalFree8Bit": 106907,
+        "usbMounted": true,
+        "usbEjecting": false,
+        "usbTotal": 61530439168,
+        "usbError": "",
+        "usbDiskPhase": 7,
+        "usbDiskSeconds": 17,
+        "uptimeUs": 14657573,
+        "internalMinimum": 91715,
+        "wifiState": 7,
+        "wifiReason": 0,
+        "rssi": -40,
+        "c6Firmware": "2.13.1",
+        "powerValid": true,
+        "batteryMv": 8356,
+        "batteryMa": 0,
+        "batteryEstimate": 97,
+        "sdFree": 58027442176
+      },
+      "serial_reenumerated_without_host_reset": true,
+      "serial_return_seconds": 1.35
+    },
+    "original_config_equal_after_usb_return": true,
+    "sd_web_markup_sha256": "8d8c30378b9deb11b5130ffc86b6bd4af1f85b66da4a17a34f7e6d33ccebf8ee",
+    "idle_preview": "recovery/validation-0.7.1/idle-preview-host.png (host render; not a photograph of the panel)"
+  },
+  "limits": [
+    "Panel flash absence still needs human visual confirmation; snapshots do not record the reboot transition.",
+    "USB-C remains Full Speed; 4x buffer is not a claim of 4x measured speed.",
+    "Exclusive MSC still requires reboot and OS ejection.",
+    "Pi, battery calibration/autonomy and power-cut endurance remain unverified."
+  ],
+  "evidence_directory": "recovery/validation-0.7.1"
+}

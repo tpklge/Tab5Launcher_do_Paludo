@@ -1,0 +1,16 @@
+{
+  "version": "0.4.2",
+  "offset": "0x20000",
+  "size": 1871568,
+  "sha256": "52db73f994672fa2ee709fa0a7b50b49aa0cbc1fe61ef17488aa7c711c799862",
+  "backup": "recovery/tab5-before-0.4.1.bin",
+  "partition_table_changed": false,
+  "host_tests": "ASan/UBSan full suite passed, including SD transport fallback and launch regression",
+  "hardware_launch_verified": "tab5_meshtastic_v2: init done and config complete",
+  "sd_return_verified": "SDMMC timeout followed by SD recuperado: SPI / 10 MHz",
+  "flashed": true,
+  "flash_hash_verified": true,
+  "wifi_pause_ack": "ESP_OK",
+  "return_to_launcher_verified": "App version 0.4.2 and launcher ready",
+  "serial_log": "/tmp/tab5-042-roundtrip-monitor.log"
+}

@@ -1,0 +1,43 @@
+# Pinned upstream fixes; called during early component expansion, before Kconfig.
+set(_tab5_managed "${CMAKE_CURRENT_LIST_DIR}/../managed_components")
+set(_tab5_file "${_tab5_managed}/espressif__esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c")
+if(EXISTS "${_tab5_file}")
+  file(SHA256 "${_tab5_file}" _tab5_hash)
+  if(_tab5_hash STREQUAL "4a1bcfd9088b6216ff33509dfc15c86886426d545012568e2f21f77239c3b0f0")
+    file(READ "${_tab5_file}" _tab5_content)
+    string(REPLACE [==[#if CONFIG_LCD_RGB_ISR_IRAM_SAFE
+#define LVGL_PORT_IRAM]==] [==[/* ESP32-P4 uses MIPI DSI (not RGB), so SOC_LCD_RGB_SUPPORTED is unset and
+ * CONFIG_LCD_RGB_ISR_IRAM_SAFE never enters sdkconfig. Use the DSI equivalent. */
+#if CONFIG_LCD_RGB_ISR_IRAM_SAFE || CONFIG_LCD_DSI_ISR_CACHE_SAFE
+#define LVGL_PORT_IRAM]==] _tab5_content "${_tab5_content}")
+    string(REPLACE [==[static bool lvgl_port_flush_dpi_panel_ready_callback(]==] [==[static LVGL_PORT_IRAM bool lvgl_port_flush_dpi_panel_ready_callback(]==] _tab5_content "${_tab5_content}")
+    string(REPLACE [==[static bool lvgl_port_flush_dpi_vsync_ready_callback(]==] [==[static LVGL_PORT_IRAM bool lvgl_port_flush_dpi_vsync_ready_callback(]==] _tab5_content "${_tab5_content}")
+    file(WRITE "${_tab5_file}" "${_tab5_content}")
+  elseif(NOT _tab5_hash STREQUAL "a39545237c1745d58695b8f5774da31fe0bf05be307193451941af2311873e44")
+    message(FATAL_ERROR "Unexpected dependency content: espressif__esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c; review pinned fixes")
+  endif()
+endif()
+set(_tab5_file "${_tab5_managed}/espressif__esp_wifi_remote/idf_v5.4/include/injected/esp_wifi.h")
+if(EXISTS "${_tab5_file}")
+  file(SHA256 "${_tab5_file}" _tab5_hash)
+  if(_tab5_hash STREQUAL "2022295a50c32194fb4284d4f6a883e244e2386c5fd0194388e90cdf5334e7d6")
+    file(READ "${_tab5_file}" _tab5_content)
+    string(REPLACE [==[#define WIFI_INIT_CONFIG_DEFAULT()]==] [==[#include "../esp_wifi_default_config.h"
+#define WIFI_INIT_CONFIG_DEFAULT()]==] _tab5_content "${_tab5_content}")
+    file(WRITE "${_tab5_file}" "${_tab5_content}")
+  elseif(NOT _tab5_hash STREQUAL "3864d48df472fd5d05c6497421635749ba0cf22ef1df58f9fba0ae3fe818caff")
+    message(FATAL_ERROR "Unexpected dependency content: espressif__esp_wifi_remote/idf_v5.4/include/injected/esp_wifi.h; review pinned fixes")
+  endif()
+endif()
+set(_tab5_file "${_tab5_managed}/espressif__esp_hosted/Kconfig")
+if(EXISTS "${_tab5_file}")
+  file(SHA256 "${_tab5_file}" _tab5_hash)
+  if(_tab5_hash STREQUAL "272dd542ce13d11554442aa1f6725a9be6268018c1e81d0a667d5e18abe08edf")
+    file(READ "${_tab5_file}" _tab5_content)
+    string(REPLACE [==[				depends on $(ESP_IDF_VERSION) >= "6.1"
+]==] [==[]==] _tab5_content "${_tab5_content}")
+    file(WRITE "${_tab5_file}" "${_tab5_content}")
+  elseif(NOT _tab5_hash STREQUAL "958954e3b15da56128b4546eeaa46f49bf8648af6a09ec29a2c5d2fed87f4923")
+    message(FATAL_ERROR "Unexpected dependency content: espressif__esp_hosted/Kconfig; review pinned fixes")
+  endif()
+endif()

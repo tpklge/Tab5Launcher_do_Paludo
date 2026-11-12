@@ -1,0 +1,19 @@
+{
+  "version": "0.4.1",
+  "offset": "0x20000",
+  "size": 1863088,
+  "sha256": "2badc966b726d682ef33a86c7ec31d01d967c1d9fb8c47f595b87b66892a84d3",
+  "backup": "recovery/tab5-before-0.4.1.bin",
+  "partition_table_changed": false,
+  "host_tests": "Full suite ASan/UBSan passed; new SD launch and late-disconnect regression checks",
+  "hardware_launch_verified": true,
+  "flashed": true,
+  "flash_hash_verified": true,
+  "launched_application": "tab5_meshtastic_v2",
+  "application_version": "fcdfe23-dirty",
+  "wifi_pause_ack": "ESP_OK",
+  "application_init_done": true,
+  "return_to_launcher_verified": true,
+  "serial_log": "/tmp/tab5-041-launch-monitor.log",
+  "sd_after_return": "Timeout in native mode; fixed and validated in 0.4.2"
+}

@@ -1,0 +1,58 @@
+{
+  "version": "0.3.1",
+  "date": "2026-11-11",
+  "flashed": true,
+  "offset": "0x20000",
+  "app_size": 1792032,
+  "app_sha256": "4208624d2f8e5bb9f136818e4f1d9b40e1dc42dbfe02914129e1f75bb9c252db",
+  "partition_table_changed": false,
+  "backup": "recovery/tab5-before-0.3.1.bin",
+  "boot_verified": true,
+  "saved_wifi_reconnected": true,
+  "config_directory": "/launcher",
+  "web_assets_on_sd": true,
+  "web_assets_verified_by_readback": [
+    {
+      "file": "app.js",
+      "size": 8877,
+      "sha256": "acb4848493eb9a015fd5225e55efefe801ff9c5eeaf78455bc4126135a8ebcce"
+    },
+    {
+      "file": "index.html",
+      "size": 5020,
+      "sha256": "7dedffe3afb8d73f418f3bf50b4737e66421e06f284f3ee741ab28b38fe1d41e"
+    },
+    {
+      "file": "style.css",
+      "size": 4550,
+      "sha256": "1a8d1d39d691afd080c2c7b01351cf0d33d4de87c184d8cbde0b288686dbf9e0"
+    }
+  ],
+  "token_digits": 8,
+  "settings_columns": 3,
+  "menu_font_minimum_px": 20,
+  "ota_physical_results": {
+    "official_m5burner": {
+      "count": 85,
+      "elapsed_seconds": 101.5,
+      "log": "/tmp/tab5-031-ota-tuned.log"
+    },
+    "bmorcelli_launcherhub": {
+      "count": 87,
+      "log": "/tmp/tab5-031-ota-diag.log"
+    },
+    "loadout_manifest": {
+      "count": 1,
+      "log": "/tmp/tab5-031-live-check.log"
+    }
+  },
+  "tcp_receive_window": 23040,
+  "tcp_receive_mailbox": 18,
+  "host_tests": "/tmp/tab5-031-tests.log",
+  "browser_tests": "/tmp/tab5-031-web-ui.log",
+  "flash_log": "/tmp/tab5-031-flash.log",
+  "serial_monitor": "/tmp/tab5-031-monitor-final.log",
+  "new_ui_physical_validation": "Pending user interaction; actual LVGL host rendering and actual SD web assets tested in Chrome at 4 widths",
+  "startup_memory": "Startup memory OK: 21172 bytes of UI caches placed in PSRAM.",
+  "ui_stack": "UI stack budget OK: 215 functions; largest non-worker frame 1824 bytes (/Users/paludo/Documents/PlatformIO/Projects/Tab5LauncherPaludo/components/ui/ui_sd.c:513:13:show_plan)."
+}

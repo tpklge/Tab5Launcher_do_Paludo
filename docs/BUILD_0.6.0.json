@@ -1,0 +1,205 @@
+{
+  "version": "0.6.0",
+  "offset": "0x20000",
+  "bytes": 1957744,
+  "sha256": "806a923a48e098e69afca07fa937f666550fb64858cc748c946770ed19bed803",
+  "flashed": true,
+  "flash_hash_verified": true,
+  "backup": "recovery/tab5-before-0.6.0.bin",
+  "partition_table_changed": false,
+  "app_bank_before": "Both slots already erased in the pre-0.6.0 backup; no app bank changes requested/performed.",
+  "startup_heap_low": "0x4ff1ee60",
+  "startup_memory_budget_passed": true,
+  "ui_max_nonworker_stack_bytes": 2176,
+  "http_task_stack_bytes": 16384,
+  "host_tests": "Full ASan/UBSan suite passed; memory font load and Unicode glyphs, recursive delete preflight, Pi chunk backup/readback, C6 parser and RPC failure ordering, SD copy/edit/rollback and LVGL regressions.",
+  "browser_mock": "Four widths; drop-on-list, mkdir, >60 rows, upload/retry/session, image conversion and flash confirmation.",
+  "browser_real": [
+    {
+      "width": 1280,
+      "rows": 41,
+      "errors": []
+    },
+    {
+      "width": 768,
+      "rows": 41,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "rows": 41,
+      "errors": []
+    },
+    {
+      "width": 320,
+      "rows": 41,
+      "errors": []
+    }
+  ],
+  "http_real_file_actions": {
+    "ok": true,
+    "entries": 31,
+    "actions": [
+      "mkdir",
+      "upload",
+      "complete-list",
+      "preview",
+      "edit",
+      "rename",
+      "copy",
+      "recursive-delete"
+    ]
+  },
+  "sd_assets": [
+    {
+      "path": "web/app.js",
+      "bytes": 18740,
+      "sha256": "c6b8054c0f2c10c24a83215c9baa5a0319b6d43d95fda195a9c0385be3c3cc52"
+    },
+    {
+      "path": "web/index.html",
+      "bytes": 10214,
+      "sha256": "1e414fa31dd77cdec8d3f416e227d8a8d269b78988315a57c9df4b0c3cd64caa"
+    },
+    {
+      "path": "web/style.css",
+      "bytes": 7401,
+      "sha256": "295336b13034bdb49a46f55b487d4a893488acfa90db62f9bbdef9d92d3c17dc"
+    },
+    {
+      "path": "web/transfers.js",
+      "bytes": 7068,
+      "sha256": "963061a43e2dfdf7ed3510323be330c96ec979508b2564c89994003357d7dc6b"
+    },
+    {
+      "path": "fonts/OFL-NotoEmoji.txt",
+      "bytes": 4330,
+      "sha256": "500bb1ccf43df7bbb522112f9133a52b16e1c35e809632f5d8609b179152de5b"
+    },
+    {
+      "path": "fonts/OFL-NotoSansSC.txt",
+      "bytes": 4388,
+      "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    },
+    {
+      "path": "fonts/cjk-OFL.txt",
+      "bytes": 4388,
+      "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    },
+    {
+      "path": "fonts/cjk.bin",
+      "bytes": 5125208,
+      "sha256": "21d7913e6ccc17d4f37e35a65d48795f5bdbd199220712254fe9146b1c3cda96"
+    },
+    {
+      "path": "fonts/emoji-OFL.txt",
+      "bytes": 4330,
+      "sha256": "500bb1ccf43df7bbb522112f9133a52b16e1c35e809632f5d8609b179152de5b"
+    },
+    {
+      "path": "fonts/emoji.bin",
+      "bytes": 299760,
+      "sha256": "b960e3196cb8d9b8753478e66565df5eddfbe52c9e322f1784c85a303ed23f5a"
+    },
+    {
+      "path": "fonts/manifest.json",
+      "bytes": 701,
+      "sha256": "41966ced4d5d2b7f85fc6bacbcbd6bc3e81608df06d5a1f4c177d479e6ad888a"
+    },
+    {
+      "path": "c6/manifest.json",
+      "bytes": 324,
+      "sha256": "565ce3e5311df799cd3a8721efa717d5c384007a69fa5d59c4e6032407e532c6"
+    },
+    {
+      "path": "c6/network_adapter.bin",
+      "bytes": 1198928,
+      "sha256": "7a7779d00a3e149a1d563277149bb35fab5c68625b4be82f68cae26c54329466"
+    },
+    {
+      "path": "c6/sdkconfig.build",
+      "bytes": 71071,
+      "sha256": "6b0c30dbcf168766041b106b0b9a94b677687f2bc34c2be78fb989fdb6504da9"
+    }
+  ],
+  "usb_roundtrip": {
+    "entry": {
+      "error": 0,
+      "message": "USB disco: ejete no computador antes de RESET. Reiniciando em modo exclusivo."
+    },
+    "disk": "disk4",
+    "return": {
+      "error": 0,
+      "version": "0.6.0",
+      "reset": "SW_RESET",
+      "internalFree": 194987,
+      "psramFree": 16534008,
+      "sd": true,
+      "upload": false,
+      "usbDiskPhase": 7,
+      "usbDiskSeconds": 26,
+      "uptimeUs": 9689531,
+      "internalMinimum": 185347,
+      "wifiState": 7,
+      "wifiReason": 0,
+      "rssi": 0,
+      "c6Firmware": "2.13.1",
+      "powerValid": true,
+      "batteryMv": 8346,
+      "batteryMa": 0,
+      "batteryEstimate": 97,
+      "sdFree": 58155204608
+    }
+  },
+  "c6_update": {
+    "reply": {
+      "error": 0,
+      "message": "C6 atualizado; reiniciando P4 para conferir a versao"
+    },
+    "seconds": 11.21
+  },
+  "c6_status_after_update": {
+    "error": 0,
+    "version": "0.6.0",
+    "reset": "SW_RESET",
+    "internalFree": 183867,
+    "psramFree": 21898244,
+    "sd": true,
+    "upload": false,
+    "usbDiskPhase": 0,
+    "usbDiskSeconds": 0,
+    "uptimeUs": 37639166,
+    "internalMinimum": 169139,
+    "wifiState": 7,
+    "wifiReason": 0,
+    "rssi": -38,
+    "c6Firmware": "2.13.1",
+    "powerValid": true,
+    "batteryMv": 8347,
+    "batteryMa": 0,
+    "batteryEstimate": 97,
+    "sdFree": 58155335680
+  },
+  "pi_physical": false,
+  "measured_battery_calibration": false,
+  "energy_hotplug_long_tests": false,
+  "physical_fixes": "CJK font FAT seek freeze replaced by sequential worker + verified RAM parser. HTTP copy stack overflow fixed with heap buffers and 16KiB task. USB software return restores FS PHY mapping before restart and at app entry.",
+  "soak": {
+    "samples": 30,
+    "errors": 0,
+    "seconds": 300.01,
+    "log": "/tmp/tab5-soak060-final.jsonl",
+    "all_sd_ready": true,
+    "all_wifi_connected": true,
+    "c6_versions": [
+      "2.13.1"
+    ],
+    "reboots_observed": 0,
+    "internal_free_range": [
+      142403,
+      183675
+    ],
+    "scope": "Read-only polling; user interacted with menus/USB. Not a battery autonomy, power-cut, or exhaustive hot-plug test."
+  },
+  "user_usb_drive": "User reported an empty 64GB USB-A drive, probably exFAT. USB-A MSC host/filesystem support is pending; this drive was not mounted or formatted."
+}

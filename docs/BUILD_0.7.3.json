@@ -1,0 +1,26 @@
+{
+  "version": "0.7.3",
+  "recorded_at": "2026-11-12T04:58:43.100398-04:00",
+  "flashed": false,
+  "installed_version": "0.7.1",
+  "firmware_bytes": 1998928,
+  "firmware_sha256": "d86a2dae9d51f9b4e63b8c099817dae09133b0e4106fd5580433591682db3fe6",
+  "fits_installed_factory": true,
+  "validation": {
+    "host_regressions": "passed; ASan/UBSan where configured; real pthread storage coordination; eight USB transition failure/success scenarios",
+    "production_build": "passed ESP-IDF 5.4.4",
+    "startup_heap": "0x4ff1ef00; limit 0x4ff1f000",
+    "ui_psram_cache_bytes": 43988,
+    "largest_non_worker_ui_frame_bytes": 2352,
+    "hardware": "not performed; no flash this turn",
+    "compiler_warning": "HTTP api_handler_impl frame 5320 bytes; server task configured with 16384-byte stack; runtime high-water validation pending"
+  },
+  "resolved_audit_ids": [
+    "A01",
+    "A02",
+    "A03",
+    "A04",
+    "A05"
+  ],
+  "includes_prepared_0_7_2_wake_fix": true
+}

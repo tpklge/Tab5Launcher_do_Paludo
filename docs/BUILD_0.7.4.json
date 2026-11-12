@@ -1,0 +1,30 @@
+{
+  "version": "0.7.4",
+  "recorded_at": "2026-11-12T05:06:10.278511-04:00",
+  "flashed": true,
+  "firmware_bytes": 1999040,
+  "firmware_sha256": "5a7c76530e92f2d622ec15d423ad7e62d1a1a6de435628c9873d0a7638b3d925",
+  "flash_offset": 131072,
+  "installed_launcher_partition_bytes": 2031616,
+  "partition_table_rewritten": false,
+  "backup": "recovery/tab5-before-0.7.4.bin",
+  "backup_sha256": "a77e11da96159b8816ad99813b84a67d82f39f9e153dce7b73359c7f569a9f83",
+  "validation": {
+    "host_suite": "passed",
+    "usb_msc_fault_injection": "passed ASan/UBSan; failed allocation/free, recovery reuse, bounded cluster I/O, partial chunk and fail-stop",
+    "local_msc_override": "verified in build/compile_commands.json",
+    "production_build": "passed ESP-IDF 5.4.4",
+    "startup_heap": "0x4ff1ef00; within configured budget",
+    "largest_non_worker_ui_frame_bytes": 2352,
+    "flash": "esptool write readback hash verified; application only",
+    "hardware": "13 directories on attached USB-A drive; 256KiB write/read SHA-256 match; listing; recursive test cleanup; USB remains mounted and uptime increases",
+    "extended_soak": "not performed",
+    "post_test_observation": "7 successful read-only polls over 35 seconds; D mounted, SD listing responsive, uptime monotonic"
+  },
+  "hardware_evidence": "recovery/validation-0.7.4/usb-test.json",
+  "includes": [
+    "0.7.2 wake fix",
+    "0.7.3 A01-A05 critical fixes",
+    "USB MSC safe DMA growth and bounded FAT I/O"
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "version": "0.7.0",
+  "recorded_at": "2026-11-12T02:48:54.670251-04:00",
+  "device": "M5Stack Tab5 ESP32-P4, ST7123, 16 MiB flash, 32 MiB PSRAM",
+  "c6_firmware": "2.13.1",
+  "firmware": {
+    "path": "build/tab5_launcher.bin",
+    "bytes": 1989952,
+    "sha256": "85fa567a82812d57f9bfa1b00de2ec165715b103b2dc76408c8a3c61cac52896",
+    "flashed_offset": 131072,
+    "factory_reserved_bytes": 2031616,
+    "esptool_hash_verified": true
+  },
+  "original_full_backup": {
+    "path": "recovery/tab5-before-0.7.0.bin",
+    "sha256": "4e47daaeb7141085204c799570dd18ebe8635c5c6d89ce24a890e69a6f2b1827"
+  },
+  "checks": {
+    "host_regressions": "All passed, including ASan/UBSan UI, SD request ownership/failure, manual flash layout, recovery and upgrade tooling",
+    "startup_memory": "43988 bytes UI caches in PSRAM; heap starts 0x4ff1efb0",
+    "ui_stack": "largest non-worker frame 2352 bytes",
+    "sd_worker": "16 KiB task stack; worker frame 48 bytes; request/result payloads in PSRAM",
+    "native_navigation": {
+      "transitions": 25,
+      "views": [
+        "SD",
+        "FLASH",
+        "CFG",
+        "WEB",
+        "HOME"
+      ],
+      "faults_seen": 0,
+      "lowest_internal_free_bytes": 24963
+    },
+    "web_responsive": [
+      {
+        "width": 320,
+        "six_segments": true,
+        "capacity_guard": true,
+        "errors": []
+      },
+      {
+        "width": 390,
+        "six_segments": true,
+        "capacity_guard": true,
+        "errors": []
+      },
+      {
+        "width": 768,
+        "six_segments": true,
+        "capacity_guard": true,
+        "errors": []
+      },
+      {
+        "width": 1280,
+        "six_segments": true,
+        "capacity_guard": true,
+        "errors": [],
+        "manual_apply_accepted": true,
+        "restart_message": "Operação em andamento no Tab5. O Wi-Fi será pausado e o aparelho reiniciará. Após reiniciar, confira a tela SD e reabra a WebGUI."
+      }
+    ],
+    "physical_manual_flash": "Empty reservations applied as 1/2 MiB and 2/1 MiB, normal software reboot; final automatic compaction removes our test reservations. Occupied-app manual relocation covered in host, not claimed as physical manual test.",
+    "physical_apps": "Microcity 0.11.0 and tab5_erp 1.0.0 installed and verified; Microcity booted and reset returned to launcher. Second automatic allocation preserved first app. Only these validation installs removed, backup disabled.",
+    "usb": "Real 61,530,439,168-byte USB-A drive mounted as D:, C:/D: replacement + folder merge SHA/readback, ejection and file persistence across remount/reboot passed. No formatting performed.",
+    "power": "INA readings and rotating 30-second CSV observed; percentage remains voltage estimate.",
+    "aurora_cfg": "Legacy fixed partition checked erased; launcher does not use it for settings. /launcher/config.json on SD stores launcher configuration.",
+    "protected_data": {
+      "bytes": 6225920,
+      "unchanged": true,
+      "sha256_before": "6d1e342d98e227e0df21edeccc80feac2e9e84a3cd7c158d53bfdd873b5ffdba",
+      "sha256_after": "6d1e342d98e227e0df21edeccc80feac2e9e84a3cd7c158d53bfdd873b5ffdba",
+      "phase": "after final manual layouts and automatic compaction"
+    },
+    "manual_compaction_ack": {
+      "ok": true,
+      "message": "Operacao iniciada",
+      "willRestart": true
+    },
+    "final_inventory": [],
+    "final_layout": {
+      "sizes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "minimum": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "launcher": 2031616,
+      "capacity": 8388608,
+      "data": 6225920,
+      "boot": 131072
+    },
+    "final_soak": {
+      "samples": 24,
+      "errors": 0,
+      "seconds": 120.01,
+      "log": "/tmp/tab5-070-manual-final-soak.jsonl",
+      "all_sd_usb_wifi_ready": true,
+      "uptime_monotonic": true,
+      "minimum_internal_bytes": 64959
+    }
+  },
+  "limits": [
+    "No Raspberry Pi available: no physical Tab5Link validation.",
+    "No measured full battery cycle/calibration or actual critical shutdown trial.",
+    "No deliberate power cuts during flash writes.",
+    "Short observed runs are not a prolonged endurance guarantee.",
+    "Arbitrary relocation/resizing of protected data partitions is not supported."
+  ],
+  "evidence_directory": "recovery/validation-0.7.0"
+}

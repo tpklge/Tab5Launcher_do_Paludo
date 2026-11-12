@@ -1,0 +1,10 @@
+{
+  "board": "M5Stack Tab5",
+  "transport": "SDIO",
+  "version": "2.13.1",
+  "idf": "5.4.4",
+  "sha256": "7a7779d00a3e149a1d563277149bb35fab5c68625b4be82f68cae26c54329466",
+  "bytes": 1198928,
+  "configSha256": "6b0c30dbcf168766041b106b0b9a94b677687f2bc34c2be78fb989fdb6504da9",
+  "source": "espressif/esp_hosted==2.13.1"
+}

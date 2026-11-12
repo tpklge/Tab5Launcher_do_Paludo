@@ -1,0 +1,21 @@
+{
+  "version": "0.8.0-rc.1",
+  "status": "Release Candidate; extended use before final; no scheduled final release",
+  "recorded_at": "2026-11-12T05:27:21.904108-04:00",
+  "flashed": false,
+  "installed_hardware_version": "0.7.4",
+  "firmware_bytes": 1980080,
+  "firmware_sha256": "7c41c32d1838f8494011d41a6394d7b2436bb5c745b82b11151251104b4b0973",
+  "validation": {
+    "production_build": "passed ESP-IDF 5.4.4",
+    "startup_heap": "0x4ff1eee0; budget passed",
+    "largest_non_worker_ui_frame_bytes": 2352,
+    "host_suite": "passed ASan/UBSan where configured; real threads for state and storage guards",
+    "no_nvs": "source and default partition checks passed; no linked NVS persistence routines; only empty SDK linker hook",
+    "sd_state": "durability, aborted transactions, failed publication/retry, corrupt schema, exclusive writers, lease cleanup passed",
+    "usb_request": "RTC one-shot, software reset restriction, damaged marker and transition policy tests passed",
+    "dependency_fixes": "pristine upstream files, idempotence and rejection of unknown versions verified",
+    "hardware_for_rc": "pending; 0.7.4 hardware evidence does not certify RC changes",
+    "clean_checkout_build": "passed from a separate directory with no managed_components or build cache copied; local MSC path and dependency fixes verified"
+  }
+}

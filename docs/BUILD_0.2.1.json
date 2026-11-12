@@ -1,0 +1,27 @@
+{
+  "version": "0.2.1",
+  "flashed": true,
+  "written_offsets": [
+    "0x20000"
+  ],
+  "launcher": {
+    "offset": 131072,
+    "file": "tab5_launcher.bin",
+    "size": 1504672,
+    "sha256": "1fe392836217c97ce526c59a3dec428fbe74e1c4232a17999de62117d70066a7"
+  },
+  "apps_and_table_preserved": true,
+  "navigation_selftest_in_production": false,
+  "lvgl_stack_bytes": 12288,
+  "sd_submit_frame_bytes": 32,
+  "maximum_ui_callback_frame_bytes": 1824,
+  "hardware_diagnostic_test": {
+    "completed_sd_visits": 5,
+    "directory_entries": 31,
+    "list_page_size": 24,
+    "restarts": 0,
+    "old_stack_bytes": 7168,
+    "old_stack_minimum_free_bytes": 1524
+  },
+  "serial_log": "/tmp/tab5-021-monitor.log"
+}

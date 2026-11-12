@@ -1,0 +1,7 @@
+{
+  "sources": [
+    {"name": "M5Burner oficial", "url": "https://m5burner-api.m5stack.com/api/firmware"},
+    {"name": "LauncherHub / Tab5", "url": "https://api.launcherhub.net/giveMeTheList"},
+    {"name": "Loadout Tab5", "url": "https://github.com/0day1day/loadout-tab5/releases/download/v1.0.0/latest.json"}
+  ]
+}

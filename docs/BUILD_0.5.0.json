@@ -1,0 +1,38 @@
+{
+  "version": "0.5.0",
+  "offset": "0x20000",
+  "size": 1901744,
+  "sha256": "e8512cc438acc07c12f78713fcc50c75643fb3f4c749334fcc19d311ad23b75e",
+  "backup": "recovery/tab5-before-0.5.0.bin",
+  "partition_table_changed": false,
+  "flashed": true,
+  "flash_hash_verified": true,
+  "host_tests": "All host regressions passed; ASan/UBSan and LVGL real. Interrupted migration/profile transactions, range download and grouped update checks.",
+  "startup_memory": "33524 bytes UI caches in PSRAM; low heap starts 0x4ff1e520",
+  "ui_stack": "Largest non-worker frame 2176 bytes",
+  "hardware": {
+    "status": {
+      "error": 0,
+      "version": "0.5.0",
+      "reset": "UNKNOWN",
+      "internalFree": 263151,
+      "psramFree": 27502760,
+      "sd": true,
+      "upload": false
+    },
+    "plan": {
+      "error": 0,
+      "message": "1 aplicativo(s) serão preservados e verificados. Backup integral antes da migração."
+    },
+    "backup": {
+      "error": 0,
+      "message": "Backup integral verificado: /sdcard/backups/flash-9093500.full"
+    },
+    "check": {
+      "error": 0,
+      "message": "Backup integral compatível e íntegro"
+    }
+  },
+  "destructive_hardware_tests": false,
+  "scope": "No migration, restore or profile activation performed on user data; only launcher flashed and backup/preflight tested."
+}

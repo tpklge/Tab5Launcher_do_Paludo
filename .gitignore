@@ -1,0 +1,22 @@
+# Device backups contain private configuration and credentials.
+/recovery/
+/dist/
+/build/
+/managed_components/
+*.ppm
+__pycache__/
+
+.DS_Store
+/.pio/
+/.vscode/
+sdkconfig.old
+.env
+.env.*
+*.pem
+*.key
+/sdcard/launcher/config.json
+/sdcard/launcher/private/
+/sdcard/launcher/backups/
+/sdcard/launcher/incoming/
+/sdcard/launcher/downloads/
+/sdcard/launcher/diagnostics/
