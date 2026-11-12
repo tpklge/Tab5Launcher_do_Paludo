@@ -1,8 +1,8 @@
-# Limites e pendências — 0.8.0-rc.1 (Release Candidate)
+# Limites e pendências — 0.8.0-rc.2 (Release Candidate)
 
 A01–A05 corrigidos no código e nos testes host: [CHANGES_0.7.3.md](CHANGES_0.7.3.md). Incluídos na 0.7.4 gravada; criação de pastas e leitura/escrita USB validadas fisicamente. Os demais cenários de recuperação exigem validação específica. A06–A13 da [auditoria](CODE_AUDIT_2026-11-12.md) continuam pendentes.
 
-Implementação atual: [CHANGES_0.8.0-rc.1.md](CHANGES_0.8.0-rc.1.md), compilada sem flash; aparelho na 0.7.4. Uso prolongado antes da versão final. Histórico: [CHANGES_0.7.4.md](CHANGES_0.7.4.md); histórico [CHANGES_0.7.1.md](CHANGES_0.7.1.md); base de armazenamento em [CHANGES_0.7.0.md](CHANGES_0.7.0.md).
+Implementação atual: [CHANGES_0.8.0-rc.2.md](CHANGES_0.8.0-rc.2.md), com instalação limpa autorizada. O gráfico distingue os dados reais da área sem partições. A fronteira atual do alocador permanece em 0xa10000, mesmo sem vfs/spiffs; a região posterior não é prometida como capacidade de instalação. Uso prolongado antes da versão final. Histórico: [CHANGES_0.7.4.md](CHANGES_0.7.4.md); histórico [CHANGES_0.7.1.md](CHANGES_0.7.1.md); base de armazenamento em [CHANGES_0.7.0.md](CHANGES_0.7.0.md).
 Evidência da gravação e testes atuais: [BUILD_0.7.4.json](BUILD_0.7.4.json).
 
 - Flash: mapa gráfico com reservas manuais e alocação automática por tamanho real, até 16 apps, preservando os existentes se todos couberem. O banco disponível depende do tamanho mínimo alinhado do launcher. Backup de

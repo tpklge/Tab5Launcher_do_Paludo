@@ -4,7 +4,7 @@
 
 Launcher para **M5Stack Tab5 (ESP32-P4 + ESP32-C6)**, desenvolvido em C com ESP-IDF e LVGL 9. Permite instalar e iniciar firmwares, gerenciar arquivos e configurar o aparelho por toque, teclado físico e uma WebGUI responsiva.
 
-**Versão: 0.8.0-rc.1 — Release Candidate (RC).** Esta versão será utilizada e observada por um bom tempo antes de ser considerada final. Não há data definida para a versão final. Correções encontradas durante esse período poderão gerar novos RCs. Testes automatizados aprovados não significam que todos os cenários já foram validados fisicamente.
+**Versão: 0.8.0-rc.2 — Release Candidate (RC).** Esta versão será utilizada e observada por um bom tempo antes de ser considerada final. Não há data definida para a versão final. Correções encontradas durante esse período poderão gerar novos RCs. Testes automatizados aprovados não significam que todos os cenários já foram validados fisicamente.
 
 ## Inspirações e agradecimentos
 
@@ -30,9 +30,9 @@ Essas referências orientaram o desenvolvimento e os requisitos de interface. Es
 
 O launcher **não inicializa, lê, grava ou importa namespaces NVS**. Configuração, Wi-Fi, metadados, guarda de boot e registros de instalação/recuperação ficam em `/launcher` no microSD. O pedido temporário para entrar em USB disco usa um marcador RTC consumido uma única vez após reinício por software.
 
-O mapa padrão para instalações novas **não reserva `nvs` nem `aurora_cfg`**. Aplicativos que precisarem de NVS devem fornecer/criar uma partição compatível e administrá-la. Uma chamada a `nvs_flash_init()` sozinha não cria uma entrada na tabela de partições: firmwares que pressupõem uma partição compartilhada preexistente podem precisar de adaptação. O launcher não instala automaticamente partições NVS arbitrárias de terceiros.
+O mapa padrão para instalações novas **não reserva `nvs`, `aurora_cfg`, `vfs` ou `spiffs`**. Aplicativos que precisarem de NVS devem fornecer/criar uma partição compatível e administrá-la. Uma chamada a `nvs_flash_init()` sozinha não cria uma entrada na tabela de partições: firmwares que pressupõem uma partição compartilhada preexistente podem precisar de adaptação. O launcher não instala automaticamente partições NVS arbitrárias de terceiros.
 
-Partições de aplicativos já existentes não são apagadas por uma atualização apenas do binário do launcher. Backups de partições de dados existentes são cópias brutas, sem abrir namespaces NVS. Snapshots lógicos de NVS de versões anteriores não são convertidos automaticamente; recapture os dados antes de depender de um novo perfil. As credenciais/preferências que já estão no SD permanecem utilizáveis; não há mais importação de configurações antigas guardadas somente em NVS. Mantenha o cartão inserido para operações persistentes.
+Partições de aplicativos já existentes não são apagadas por uma atualização apenas do binário do launcher. Backups de partições de dados existentes são cópias brutas, sem abrir namespaces NVS. Snapshots lógicos de NVS de versões anteriores não são convertidos automaticamente; recapture os dados antes de depender de um novo perfil. As credenciais/preferências que já estão no SD permanecem utilizáveis; não há mais importação de configurações antigas guardadas somente em NVS. Mantenha o cartão inserido para operações persistentes. No mapa limpo, a região sem partições após `0xa10000` não é somada à capacidade atual do alocador; ampliar esse banco exige validação adicional.
 
 ## Compilar e testar
 
@@ -70,9 +70,9 @@ Uma atualização apenas do app não remove entradas NVS legadas da tabela insta
 
 ## Estado de validação
 
-Na 0.7.4, criação de 13 pastas no pendrive, leitura/escrita de 256 KiB com SHA-256 e limpeza dos arquivos de teste passaram no Tab5 sem reinício. O RC 0.8.0 acrescenta a retirada do NVS e tem validação de build e testes host; ainda requer ensaios físicos específicos dessa mudança e observação prolongada.
+Na 0.7.4, criação de 13 pastas no pendrive, leitura/escrita de 256 KiB com SHA-256 e limpeza dos arquivos de teste passaram no Tab5 sem reinício. A 0.8.0-rc.2 teve instalação limpa, boot, Wi-Fi, leitura do SD e mapa/API validados no aparelho, além do build e testes host. Recuperação de operações, perfis e observação prolongada continuam pendentes.
 
-Limitações, pendências e registros históricos: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md), [docs/CHANGES_0.8.0-rc.1.md](docs/CHANGES_0.8.0-rc.1.md) e [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Não há garantia de execução de qualquer `.bin`, resistência a todo corte de energia ou isolamento entre firmwares que acessam a mesma flash. Sem suporte a NTFS, múltiplos pendrives/hub ou Secure Boot/flash criptografada neste fluxo de instalação.
+Limitações, pendências e registros históricos: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md), [docs/CHANGES_0.8.0-rc.2.md](docs/CHANGES_0.8.0-rc.2.md) e [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Não há garantia de execução de qualquer `.bin`, resistência a todo corte de energia ou isolamento entre firmwares que acessam a mesma flash. Sem suporte a NTFS, múltiplos pendrives/hub ou Secure Boot/flash criptografada neste fluxo de instalação.
 
 ## Licença
 

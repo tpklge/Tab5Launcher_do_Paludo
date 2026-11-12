@@ -1,0 +1,37 @@
+{
+  "version": "0.8.0-rc.2",
+  "status": "Release Candidate; extended use before final",
+  "recorded_at": "2026-11-12T05:51:22.701185-04:00",
+  "flashed": true,
+  "full_flash_erased_before_programming": true,
+  "firmware_bytes": 1980352,
+  "firmware_sha256": "712e8fb599d97bc27a1d590eff4811b96fce39b03356192e6952668e388a1ec9",
+  "installed_partitions": [
+    "phy_init",
+    "otadata",
+    "launch_req",
+    "launcher",
+    "coredump"
+  ],
+  "removed_app_data_partitions": [
+    "nvs",
+    "aurora_cfg",
+    "vfs",
+    "spiffs"
+  ],
+  "validation": {
+    "production_build": "passed ESP-IDF 5.4.4",
+    "startup_heap": "0x4ff1eee0; budget passed",
+    "largest_non_worker_ui_frame_bytes": 2352,
+    "host_suite": "passed ASan/UBSan where configured; native map label and real partition boundary accounting covered",
+    "web_javascript": "V8 syntax compilation passed",
+    "no_nvs": "source, default layout and linked symbols passed",
+    "flash": "full erase successful, complete initial image flashed at 0x0, esptool hash verified",
+    "former_data_readback": "6160384 bytes and former NVS 24576 bytes verified erased in preceding clean-install readback",
+    "hardware": "RC.2 status, SD listing, Wi-Fi connected, actual map API and WebGUI app.js SHA-256 passed",
+    "map_tail_partitioned_bytes": 65536,
+    "map_tail_unpartitioned_bytes": 6160384,
+    "allocator_limit_unchanged": "0xa10000; unpartitioned tail is not additional current app capacity",
+    "extended_soak_and_recovery": "pending"
+  }
+}

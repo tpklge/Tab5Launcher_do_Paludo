@@ -4,7 +4,7 @@ English · [Português](README.md)
 
 A launcher for the **M5Stack Tab5 (ESP32-P4 + ESP32-C6)**, developed in C with ESP-IDF and LVGL 9. Install and launch firmware, manage files, and configure the device through touch, the physical keyboard, and a responsive WebGUI.
 
-**Version: 0.8.0-rc.1 — Release Candidate (RC).** This version will be used and observed for an extended period before it is considered final. There is no scheduled final release date. Issues found during this period may lead to additional RCs. Passing automated tests does not mean every scenario has been verified on hardware.
+**Version: 0.8.0-rc.2 — Release Candidate (RC).** This version will be used and observed for an extended period before it is considered final. There is no scheduled final release date. Issues found during this period may lead to additional RCs. Passing automated tests does not mean every scenario has been verified on hardware.
 
 ## Inspiration and acknowledgements
 
@@ -30,9 +30,9 @@ These references informed development and interface requirements. This is an ind
 
 The launcher **does not initialize, read, write, or import NVS namespaces**. Configuration, Wi-Fi credentials, metadata, boot guards, and installation/recovery journals reside under `/launcher` on the microSD. The temporary USB disk request uses an RTC marker consumed once after a software reset.
 
-The default layout for new installations **does not reserve `nvs` or `aurora_cfg`**. Applications requiring NVS must supply/create a compatible partition and manage it themselves. Calling `nvs_flash_init()` alone does not add a partition-table entry: firmware assuming an existing shared partition may need adaptation. The launcher does not automatically install arbitrary third-party NVS partitions.
+The default layout for new installations **does not reserve `nvs`, `aurora_cfg`, `vfs`, or `spiffs`**. Applications requiring NVS must supply/create a compatible partition and manage it themselves. Calling `nvs_flash_init()` alone does not add a partition-table entry: firmware assuming an existing shared partition may need adaptation. The launcher does not automatically install arbitrary third-party NVS partitions.
 
-An app-only launcher update does not erase existing application partitions. Existing data partitions can be backed up as raw bytes without opening NVS namespaces. Older logical NVS snapshots are not automatically converted; capture the data again before relying on a new profile. Credentials/preferences already on the SD remain usable; settings stored only in legacy NVS are no longer imported. Keep the card inserted for persistent operations.
+An app-only launcher update does not erase existing application partitions. Existing data partitions can be backed up as raw bytes without opening NVS namespaces. Older logical NVS snapshots are not automatically converted; capture the data again before relying on a new profile. Credentials/preferences already on the SD remain usable; settings stored only in legacy NVS are no longer imported. Keep the card inserted for persistent operations. In the clean layout, unpartitioned space after `0xa10000` is not added to the current allocator capacity; extending that bank requires additional validation.
 
 ## Build and test
 
@@ -70,9 +70,9 @@ An app-only update does not remove legacy NVS entries from the installed partiti
 
 ## Validation status
 
-On 0.7.4, creating 13 USB-drive directories, writing/reading 256 KiB with SHA-256 verification, and deleting test data passed on a Tab5 without reboot. The 0.8.0 RC adds NVS removal and has build/host-test validation; this change still needs dedicated hardware testing and extended observation.
+On 0.7.4, creating 13 USB-drive directories, writing/reading 256 KiB with SHA-256 verification, and deleting test data passed on a Tab5 without reboot. Version 0.8.0-rc.2 passed a clean installation, boot, Wi-Fi, SD listing, and map/API checks on hardware, in addition to build/host tests. Recovery workflows, profiles, and extended observation still need validation.
 
-Limitations, outstanding work, and historical records: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md), [docs/CHANGES_0.8.0-rc.1.md](docs/CHANGES_0.8.0-rc.1.md), and [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Arbitrary `.bin` compatibility, survival of every power cut, and isolation between firmware sharing the same flash are not guaranteed. NTFS, multiple drives/hubs, and Secure Boot/encrypted flash are unsupported in this installation workflow.
+Limitations, outstanding work, and historical records: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md), [docs/CHANGES_0.8.0-rc.2.md](docs/CHANGES_0.8.0-rc.2.md), and [docs/TEST_PLAN.md](docs/TEST_PLAN.md). Arbitrary `.bin` compatibility, survival of every power cut, and isolation between firmware sharing the same flash are not guaranteed. NTFS, multiple drives/hubs, and Secure Boot/encrypted flash are unsupported in this installation workflow.
 
 ## License
 

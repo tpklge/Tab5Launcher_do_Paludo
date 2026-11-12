@@ -1,3 +1,4 @@
+#include "flash_layout_info.h"
 #include "web.h"
 #include "board.h"
 #include "boot_mgr.h"
@@ -231,7 +232,9 @@ static esp_err_t flash_layout_get(httpd_req_t *r) {
   cJSON_AddNumberToObject(o, "launcher", layout->launcher_size);
   cJSON_AddNumberToObject(o, "capacity",
                           0xa10000 - 0x20000 - layout->launcher_size);
-  cJSON_AddNumberToObject(o, "data", 0x5f0000);
+  uint32_t allocated = flash_layout_tail_allocated();
+  cJSON_AddNumberToObject(o, "data", allocated);
+  cJSON_AddNumberToObject(o, "unallocated", 0x5f0000 - allocated);
   cJSON_AddNumberToObject(o, "boot", 0x20000);
   for (unsigned i = 0; i < 16; i++) {
     cJSON_AddItemToArray(sizes, cJSON_CreateNumber(layout->reserved[i]));

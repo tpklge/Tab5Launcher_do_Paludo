@@ -66,6 +66,7 @@ int main(void){
  r=(result_t){.kind=21,.layout={.launcher_size=0x1f0000,.reserved={0x100000,0x200000},.minimum={0x100000}}};xQueueSend(s_results,&r,0);poll(NULL);
  lv_obj_update_layout(p);for(unsigned k=0;k<4;k++){lv_area_t row,label;lv_obj_get_coords(lv_obj_get_parent(s_layout->values[k]),&row);lv_obj_get_coords(s_layout->values[k],&label);assert(label.x1>=row.x1 && label.x2<=row.x2);}
  assert(s_layout->ready&&lv_obj_get_child_count(s_layout->bar)==6&&!lv_obj_has_state(s_layout->apply,LV_STATE_DISABLED));
+ assert(!strcmp(lv_label_get_text(lv_obj_get_child(lv_obj_get_child(s_layout->bar,-1),0)),"Sem particao"));
  lv_slider_set_value(s_layout->sliders[1],48,LV_ANIM_OFF);lv_obj_send_event(s_layout->sliders[1],LV_EVENT_VALUE_CHANGED,NULL);assert(s_layout->sizes[1]==0x300000&&s_layout->dirty);poll(NULL);assert(!s_layout->dirty && !strcmp(lv_label_get_text(s_layout->values[1]),"3.00 MiB"));
  lv_slider_set_value(s_layout->sliders[0],0,LV_ANIM_OFF);assert(lv_slider_get_value(s_layout->sliders[0])==16);
  manual_plan(NULL);assert(xQueueReceive(s_jobs,&job,0)&&job.kind==22&&job.sizes[1]==0x300000);

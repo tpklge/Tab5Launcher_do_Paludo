@@ -12,7 +12,7 @@ def run(args):
  print('+ '+' '.join(map(str,args)),flush=True)
  subprocess.run(list(map(str,args)),env=env,check=True)
 if (ROOT/'build/esp-idf/ui').exists(): run([sys.executable,ROOT/'tools/check_ui_stack.py'])
-for script in ('tools/test_usb_client.py','storage_guard/run.py','usb_msc/run.py','usb_mode/run.py','tools/test_dynamic_upgrade.py','catalog_http/run.py','catalog_resume/run.py','catalog_tracking/run.py','catalog_sources/run.py','flash_snapshot/run.py','app_data/run.py','launcher_store/run.py','launcher_state/run.py','usb/run.py','web/run.py','pi_link/run.py','pi_services/run.py','c6_update/run.py','catalog/run.py','test_storage_host.py','firmware/run.py','installer/run.py','installer/large.py','bundles/run.py','sd_files/run.py','sd_transport/run.py','layout/run.py','layout/transaction.py','multiboot/run.py','boot_policy/run.py','host_wifi/run.py'):
+for script in ('tools/test_usb_client.py','tools/test_flash_layout_info.py','storage_guard/run.py','usb_msc/run.py','usb_mode/run.py','tools/test_dynamic_upgrade.py','catalog_http/run.py','catalog_resume/run.py','catalog_tracking/run.py','catalog_sources/run.py','flash_snapshot/run.py','app_data/run.py','launcher_store/run.py','launcher_state/run.py','usb/run.py','web/run.py','pi_link/run.py','pi_services/run.py','c6_update/run.py','catalog/run.py','test_storage_host.py','firmware/run.py','installer/run.py','installer/large.py','bundles/run.py','sd_files/run.py','sd_transport/run.py','layout/run.py','layout/transaction.py','multiboot/run.py','boot_policy/run.py','host_wifi/run.py'):
  run([sys.executable,ROOT/'tests'/script])
 with tempfile.TemporaryDirectory(prefix='tab5-host-') as tmp:
  folder=Path(tmp)

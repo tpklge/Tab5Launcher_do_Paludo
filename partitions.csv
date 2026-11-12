@@ -1,8 +1,9 @@
 # Tab5 Launcher — 16 MB flash (0x1000000)
-# Default "2 Apps" scheme: launcher (factory) + 2 OTA app slots + data areas.
+# Build reservation only; packaged initial installs minimize the launcher.
+# No preallocated application NVS/FAT/SPIFFS partitions.
 # Fixed layout: upgrading the old 8 MB slot requires a verified full backup and
 # tools/prepare_multiboot_upgrade.py. app0 must fit 4 MB and its upper half be erased.
-# Data partitions retain their existing offsets. launch_req is consumed by the
+# launch_req is consumed by the
 # one-shot bootloader before starting an OTA app; RESET returns to factory.
 #
 # Name,       Type, SubType,  Offset,   Size,     Flags
@@ -11,6 +12,4 @@ otadata,      data, ota,      0x10000,  0x2000,
 launch_req,   data, 0x40,     0x12000,  0x1000,
 launcher,     app,  factory,  0x20000,  0x280000,
 app0,         app,  ota_0,    0x2A0000, 0x770000,
-vfs,          data, fat,      0xA10000, 0x500000,
-spiffs,       data, spiffs,   0xF16000, 0xDA000,
 coredump,     data, coredump, 0xFF0000, 0x10000,

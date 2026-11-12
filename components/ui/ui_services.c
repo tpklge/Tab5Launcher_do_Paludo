@@ -1,3 +1,4 @@
+#include "flash_layout_info.h"
 #include "flash_snapshot.h"
 #include "launcher_store.h"
 /* Worker-owned catalog model; only LVGL timer reads completed results. */
@@ -498,7 +499,9 @@ static void layout_render(void) {
       layout_segment(label, s_layout->sizes[i], palette[i % 6]);
     }
   layout_segment("Livre", free, 0x355B49);
-  layout_segment("Dados", 0x5f0000, 0x626976);
+  uint32_t allocated = flash_layout_tail_allocated();
+  layout_segment("Sem particao", 0x5f0000 - allocated, 0x355B49);
+  layout_segment("Dados/sistema", allocated, 0x626976);
 }
 static void layout_changed(lv_event_t *e) {
   unsigned i = (unsigned)(uintptr_t)lv_event_get_user_data(e);

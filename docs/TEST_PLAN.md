@@ -1,3 +1,7 @@
+# 0.8.0-rc.2 — mapa limpo
+
+[Remoção das reservas de dados e gráfico fiel](CHANGES_0.8.0-rc.2.md). Build e testes aprovados. Apagamento integral autorizado pelo usuário; SD e pendrive preservados. Ampliação da fronteira do alocador continua fora desta revisão.
+
 # RC preparado — 0.8.0-rc.1
 
 [Remoção de NVS e publicação bilíngue](CHANGES_0.8.0-rc.1.md). Build, ausência de rotinas NVS e regressões aprovados; sem flash. Validar fisicamente: salvar configurações/Wi-Fi e reiniciar; iniciar/retornar de apps; modo USB uma única vez, cancelamento por reset físico; recuperação de operação interrompida; falha de SD sem escrita em flash NVS; perfis brutos e recaptura de snapshots legados. Uso prolongado antes da versão final.

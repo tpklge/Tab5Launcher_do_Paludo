@@ -1,4 +1,4 @@
-> Atualização de requisitos — 12/11/2026: prevalece a versão 0.8.0-rc.1. O launcher não usa nem reserva NVS; estado persistente em `/launcher` no SD. Aplicações externas administram suas partições. As referências históricas a NVS neste documento não autorizam reintroduzir essa dependência. Release Candidate em observação prolongada antes de ser final. Veja README.md e README.en.md.
+> Atualização de requisitos — 12/11/2026: prevalece a versão 0.8.0-rc.2. O launcher não usa nem reserva NVS; estado persistente em `/launcher` no SD. Aplicações externas administram suas partições. As referências históricas a NVS neste documento não autorizam reintroduzir essa dependência. Release Candidate em observação prolongada antes de ser final. Veja README.md e README.en.md.
 
 # Prompt de desenvolvimento — Launcher independente para M5Stack Tab5
 

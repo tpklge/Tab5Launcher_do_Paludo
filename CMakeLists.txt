@@ -18,7 +18,7 @@ endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
-set(PROJECT_VER "0.8.0-rc.1")
+set(PROJECT_VER "0.8.0-rc.2")
 project(tab5_launcher VERSION 0.8.0)
 
 # One FatFs ABI for every component. IDF 5.4.4 ships exFAT code but disables it
