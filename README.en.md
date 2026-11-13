@@ -19,20 +19,26 @@ These references informed development and interface requirements. This is an ind
 
 - HOME with installed applications, custom names/icons, default boot, and uninstall with optional backup.
 - Firmware installation from microSD, USB-A storage, or OTA download, with image analysis, integrity checks, and progress.
-- Flash allocation based on actual size, a graphical map, and reorganization with backup and a recovery guard; up to 16 applications when space permits.
+- Flash allocation based on actual size, a graphical map, and reorganization with optional backup and a recovery guard; up to 16 applications when space permits.
 - File manager: microSD as **C:** and FAT/exFAT USB storage as **D:**, folders, copy, rename, limited text editing, and confirmed recursive deletion.
 - WebGUI with cookie sessions, file/folder drag and drop, per-file progress, retries, folder creation, and automatic listing refresh. HTML/CSS/JS reside on the microSD.
 - Wi-Fi networks saved on the card; themes, a 144-color grid, wallpaper, idle clocks, Portuguese date formatting, physical keyboard support, brightness, and power settings.
 - Exclusive USB-C disk mode for accessing the microSD from a computer. Requires a controlled reboot and host eject; it cannot run alongside the launcher.
 - USB console, diagnostics, application data profiles, and optional Pi/Tab5Link integration. Pi integration still needs hardware validation.
 
+Full backups are optional and unchecked during installation, reorganization, and restore, including when other apps exist. Without a backup, operations that move apps use a temporary copy of occupied bytes only, checked by hash, retained for interrupted-operation recovery, and deleted on completion. Keep the SD card inserted throughout the operation.
+
+CFG provides a `.bin` and folder filter that hides dot-prefixed names in that mode. Analysis checks the binary, SHA-256, and available space before showing consent; there is no fixed delay before checking the box.
+
+Validation for this revision: ESP32-P4 build, ASan/UBSan host regressions, and stack/memory gates passed. A clean installation and BasiliskII/macOS launch were monitored over serial. The idle-screen blue-screen cause and Meshtastic still require specific hardware validation. Intermittent SD timeouts occurred when saving Wi-Fi credentials, although later reads succeeded.
+
 ## No launcher NVS
 
 The launcher **does not initialize, read, write, or import NVS namespaces**. Configuration, Wi-Fi credentials, metadata, boot guards, and installation/recovery journals reside under `/launcher` on the microSD. The temporary USB disk request uses an RTC marker consumed once after a software reset.
 
-The default layout for new installations **does not reserve `nvs`, `aurora_cfg`, `vfs`, or `spiffs`**. Applications requiring NVS must supply/create a compatible partition and manage it themselves. Calling `nvs_flash_init()` alone does not add a partition-table entry: firmware assuming an existing shared partition may need adaptation. The launcher does not automatically install arbitrary third-party NVS partitions.
+The default layout for new installations reserves a conventional `nvs` partition at `0x9000` (24 KiB) for applications. The launcher still uses only the SD card for its own persistence. `aurora_cfg`, `vfs`, and `spiffs` are not preallocated. The FLASH editor can create NVS, FAT, SPIFFS, and LittleFS partitions with a size and optional offset. Merged images can supply data for destinations with compatible names, types, and offsets; third-party bootloaders and partition tables are not written. An app-only binary does not describe its external data partitions.
 
-An app-only launcher update does not erase existing application partitions. Existing data partitions can be backed up as raw bytes without opening NVS namespaces. Older logical NVS snapshots are not automatically converted; capture the data again before relying on a new profile. Credentials/preferences already on the SD remain usable; settings stored only in legacy NVS are no longer imported. Keep the card inserted for persistent operations. In the clean layout, unpartitioned space after `0xa10000` is not added to the current allocator capacity; extending that bank requires additional validation.
+An app-only launcher update does not erase existing application partitions. Existing data partitions can be backed up as raw bytes without opening NVS namespaces. Older logical NVS snapshots are not automatically converted; capture the data again before relying on a new profile. Credentials/preferences already on the SD remain usable; settings stored only in legacy NVS are no longer imported. Keep the card inserted for persistent operations. The application bank uses contiguous space up to the first data partition while preserving the coredump at the end of flash. Additional free regions can hold data partitions created in the editor.
 
 ## Build and test
 
@@ -66,7 +72,7 @@ Packaging generates `dist/` files, with offsets, sizes, and hashes in `manifest.
 - **Existing launcher update:** flash the application binary only at the launcher offset and within the reservation verified in the installed table. **Do not flash the table from `build/` or run `idf.py flash` over an existing dynamic layout.**
 - If the new launcher does not fit, use [tools/prepare_dynamic_upgrade.py](tools/prepare_dynamic_upgrade.py) with a recent full backup and inspect its plan. The tool prepares files; it does not flash the device.
 
-An app-only update does not remove legacy NVS entries from the installed partition table. The new default layout omits those reservations. Do not upgrade with a pending installation, restore, or profile switch.
+An app-only update does not remove legacy NVS entries from the installed partition table. The conventional NVS entry is added only by a clean installation or the partition editor. Do not upgrade with a pending installation, restore, or profile switch.
 
 ## Validation status
 

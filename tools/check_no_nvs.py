@@ -1,4 +1,5 @@
-"""Fail if launcher source/default layout or linked firmware uses NVS persistence.
+"""Fail if launcher source or linked firmware uses NVS persistence.
+The conventional application-only NVS partition is allowed; launcher data stays on SD.
 Third-party SDKs can compile an unused NVS library. The empty SDK linker hook is
 allowed; initialization, key access and partition access APIs are not.
 """
@@ -17,7 +18,9 @@ for folder in ('components','main'):
 for row in (root/'partitions.csv').read_text().splitlines():
  if not row.strip() or row.lstrip().startswith('#'):continue
  cols=[x.strip() for x in row.split(',')]
- if len(cols)>2 and cols[1]=='data' and cols[2] in ('nvs','nvs_keys','0x02','0x04'):errors.append('default partition reserves NVS: '+cols[0])
+ if len(cols)>2 and cols[1]=='data' and cols[2] in ('nvs','nvs_keys','0x02','0x04'):
+  application_nvs = len(cols)>4 and cols[0]=='nvs' and cols[2]=='nvs' and int(cols[3],0)==0x9000 and int(cols[4],0)==0x6000
+  if not application_nvs: errors.append('unexpected NVS reservation: '+cols[0])
 commands=json.loads((a.build/'compile_commands.json').read_text())
 compiler=next((shlex.split(x['command'])[0] for x in commands if x['file'].endswith('/main/main.c')),None)
 nm=compiler.rsplit('gcc',1)[0]+'nm' if compiler and compiler.endswith('gcc') else shutil.which('nm')
@@ -27,4 +30,4 @@ for line in subprocess.check_output([nm,'--defined-only',str(elf)],text=True).sp
  parts=line.split()
  if len(parts)>=3 and parts[-2] in ('T','t') and parts[-1].startswith('nvs_') and parts[-1]!='nvs_sec_provider_include_impl':errors.append('linked NVS routine: '+parts[-1])
 if errors:raise SystemExit('\n'.join(errors))
-print('No launcher NVS: no persistence APIs/includes, no default NVS partitions, no linked NVS routines (empty SDK linker hook excepted).')
+print('No launcher NVS: no persistence APIs/includes, conventional application-only NVS allowed, no linked NVS routines (empty SDK linker hook excepted).')

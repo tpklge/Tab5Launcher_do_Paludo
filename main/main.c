@@ -264,7 +264,7 @@ void app_main(void) {
   }
   if (!flash_operation_pending()) {
     if (board_lvgl_lock(1000)) {
-      ui_progress_open("Salvando dados do último aplicativo", NULL, NULL);
+      ui_progress_open("Verificando dados do último aplicativo", NULL, NULL);
       board_lvgl_unlock();
     }
     char data_message[192] = {0};

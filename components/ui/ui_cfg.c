@@ -226,6 +226,9 @@ static void changed(lv_event_t *e) {
   case 14:
     s_edit.battery_warning = n;
     break;
+  case 16:
+    s_edit.only_bins = n;
+    break;
   case 15:
     s_edit.critical_shutdown = n;
     break;
@@ -608,6 +611,7 @@ lv_obj_t *ui_cfg_create(lv_obj_t *parent) {
   action(system, "Exportar configuracao para SD", 6);
   action(system, "Importar configuracao do SD", 7);
   action(appearance, "Importar tema de dados JSON", 8);
+  toggle(system, "Arquivos: somente .bin e pastas (ocultar ocultos)", s_edit.only_bins, 16);
   toggle(system, "Reconectar Wi-Fi ao iniciar", s_edit.wifi_autoconnect, 11);
   toggle(system, "Habilitar carga da bateria", board_charger_enabled(), 12);
   toggle(system, "Registrar energia no cartao", s_edit.power_logging, 13);

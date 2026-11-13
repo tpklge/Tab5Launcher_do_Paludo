@@ -515,3 +515,57 @@ MSC com buffer de 2 KiB, enumeração antes da tela e backlight retido durante r
 ## 0.7.2 preparada — observação de descanso
 
 Relato do usuário: falta de resposta com hora avançando, recuperada após RESET. Reproduzido em host LVGL o timer de RELEASED pausado após despertar em modo EVENT. Ajuste passou em 16 casos de ponteiro e 100 ciclos; texto inalterado deixa de invalidar a tela. Compilação/orçamentos aprovados. Ainda não gravado para preservar a observação da 0.7.1 solicitada pelo usuário. Ver CHANGES_0.7.2.md e BUILD_0.7.2.json.
+
+
+## Revisão de 13/11/2026 — preparada, sem flash
+
+- Backup integral passou a ser opcional e desmarcado na instalação, no mapa
+  manual/automático e na restauração. Sem backup, a migração usa um arquivo
+  temporário contendo somente tabela e bytes ocupados dos apps; verifica hashes,
+  permite retomar após interrupção e remove o arquivo quando conclui. Com banco
+  vazio, a alteração da tabela dispensa esse arquivo.
+- A pausa de Wi-Fi interrompe espera de DHCP e backoff de autenticação, prioriza
+  a solicitação e impede comandos START antigos de reativarem o rádio. Falha no
+  registro de lançamento mantém as capacidades reais do bootloader, sem anunciar
+  suporte de recuperação que ele não tenha.
+- Detecção de merged também funciona quando o arquivo começa com E9 de
+  bootloader. Aceita app exportado com padding FF e entrada ROM válida do P4.
+  Importa NVS/FAT/SPIFFS/LittleFS em destinos compatíveis por nome, tipo e offset;
+  bootloader e tabela externos não são gravados. Destinos ausentes exigem criação
+  em FLASH / + Dados. Um app-only não informa suas partições externas.
+- O banco de apps termina na primeira partição de dados real, em vez do limite
+  fixo 0xA10000. O restante livre pode receber partições de dados pelo editor,
+  com tipo, tamanho e offset opcional. O layout inicial inclui NVS convencional
+  para os aplicativos; o launcher continua persistindo somente no SD.
+- CFG expõe somente .bin/pastas e oculta entradas com ponto inicial nesse modo,
+  com filtro antes da paginação. Caixas de seleção e área de toque ampliadas.
+  A análise informa validação de SHA-256 e espaço antes de exibir o aceite.
+- Tela apagada deixa de atualizar o relógio. Registro RTC guarda estágio do
+  descanso, tempo inativo, memória interna e margem de pilha para o próximo boot
+  após panic/watchdog. A causa física da tela azul não foi confirmada; Meshtastic
+  e macOS específicos ainda precisam de teste com os binários no Tab5.
+
+Regressões host completas aprovadas com ASan/UBSan, incluindo retomada de cópia
+compacta, preservação de apps, banco acima de 8 MiB, criação de dados, cancelamento
+de Wi-Fi, merged com cabeçalho E9, paginação filtrada e ciclos LVGL. Nenhum flash
+foi executado nesta revisão.
+
+Validação final: build ESP32-P4 e limites de stack/RAM aprovados; maior frame UI
+2368 bytes, caches na PSRAM 44004 bytes, heap inicial em 0x4ff1eee0. Teste extra
+LVGL simulou quatro horas com relógio mudando, RGB565 e buffers parciais, além de
+verificar ausência de sobreposição nas caixas de aceite/backup e a passagem da
+escolha de backup para os jobs. Binário atualizado em build/tab5_launcher.bin;
+artefatos dist anteriores não foram republicados. Sem flash no dispositivo.
+
+
+## 13/11/2026 — gravacao limpa autorizada
+
+Tab5 ESP32-P4 v1.3 identificado em /dev/cu.usbmodem112201, flash 16 MB. Executado erase_flash completo (8,0 s), seguido da imagem inicial completa em 0x0, com bootloader, tabela minimizada, otadata, launch_req vazio e launcher atual. esptool confirmou hash da gravacao. Cartao SD nao foi apagado.
+
+Imagem: dist/tab5-launcher-initial.bin, 2118192 bytes, SHA-256 cb58c3c9a7fc85976bcb990c7c610515e27f2acaa5719c6e47e2c0e56f2b66f8.
+
+Console confirmou launcher 0.8.0-rc.2 pronto, politica one-shot ativa e inventario vazio. Wi-Fi conectado (RSSI -38 dBm); status USB retornou error=0 e sd=true. Listagem de /sdcard/launcher bem-sucedida. Houve timeout SDMMC durante a inicializacao, recuperado por SPI, e novo timeout de leitura ao salvar credenciais Wi-Fi (ESP_FAIL); leituras posteriores funcionaram. Esse erro de SD permanece para investigacao. Log local em build/clean-flash-boot.log.
+
+Monitor serial apos gravacao: conexao em /dev/cu.usbmodem112201 capturando continuamente em build/serial-monitor.log. Houve CHIP_USB_UART_RESET coincidente com abertura da conexao. Lancamento do slot 0 confirmou Pausa Wi-Fi ESP_OK, reinicio SW_CPU_RESET e BasiliskII Macintosh Emulator: SD, ROM, discos, GUI de configuracao, Emulator initialized successfully e execucao 68k com video ativo. Nenhum panic/watchdog observado nesse intervalo. O proprio emulador registrou reparacao HFS do disco Macintosh8.dsk. Timeouts SDMMC ao salvar credenciais no launcher se repetiram.
+
+Monitor serial encerrado a pedido do usuario apos teste do BasiliskII, sem panic/watchdog observado durante o intervalo acompanhado.

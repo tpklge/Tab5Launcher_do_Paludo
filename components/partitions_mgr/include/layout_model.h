@@ -10,7 +10,8 @@ bool layout_build_profile(const uint8_t old_table[4096],uint8_t new_table[4096],
 /* Finds a fitting destination for every occupied app; UINT32_MAX means unused. */
 bool layout_assign_apps(const uint32_t *used,unsigned old_count,const uint32_t *sizes,unsigned new_count,int *destination);
 #define LAYOUT_APP_LIMIT 16
-#define LAYOUT_DATA_START 0xa10000u
+#define LAYOUT_DATA_START 0xa10000u /* legacy profile only */
+uint32_t layout_app_end(const uint8_t table[4096]);
 uint32_t layout_factory_size(const uint8_t table[4096]);
 /* Sizes are indexed by OTA id; zero removes an empty entry. No fixed slots. */
 bool layout_build_compact(const uint8_t old[4096],uint8_t out[4096],uint32_t launcher_size,const uint32_t sizes[LAYOUT_APP_LIMIT],layout_md5_fn);

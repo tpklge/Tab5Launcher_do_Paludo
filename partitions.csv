@@ -1,12 +1,13 @@
 # Tab5 Launcher — 16 MB flash (0x1000000)
 # Build reservation only; packaged initial installs minimize the launcher.
-# No preallocated application NVS/FAT/SPIFFS partitions.
+# Conventional NVS for application compatibility; FAT/SPIFFS are user-created.
 # Fixed layout: upgrading the old 8 MB slot requires a verified full backup and
 # tools/prepare_multiboot_upgrade.py. app0 must fit 4 MB and its upper half be erased.
 # launch_req is consumed by the
 # one-shot bootloader before starting an OTA app; RESET returns to factory.
 #
 # Name,       Type, SubType,  Offset,   Size,     Flags
+nvs,          data, nvs,      0x9000,   0x6000,
 phy_init,     data, phy,      0xF000,   0x1000,
 otadata,      data, ota,      0x10000,  0x2000,
 launch_req,   data, 0x40,     0x12000,  0x1000,

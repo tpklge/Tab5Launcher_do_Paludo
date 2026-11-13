@@ -166,12 +166,23 @@ uint32_t layout_factory_size(const uint8_t table[4096]) {
       return u32(table + at + 8);
   return 0;
 }
+uint32_t layout_app_end(const uint8_t table[4096]) {
+  uint32_t end = 0xff0000u; /* preserve final coredump sector range */
+  for (unsigned at = 0; at < 3072 && table[at] == 0xaa; at += 32) {
+    const uint8_t *e = table + at;
+    uint32_t address = u32(e + 4);
+    if (e[2] != 0 && address >= 0x20000 && address < end)
+      end = address;
+  }
+  return end & ~65535u;
+}
 bool layout_build_compact(const uint8_t old[4096], uint8_t out[4096],
                           uint32_t launcher_size,
                           const uint32_t sizes[LAYOUT_APP_LIMIT],
                           layout_md5_fn md5) {
-  if (!old || !out || !sizes || !md5 || !launcher_size ||
-      (launcher_size & 65535) || launcher_size > LAYOUT_DATA_START - 0x30000)
+  uint32_t bank_end = old ? layout_app_end(old) : 0;
+  if (bank_end < 0x30000 || !old || !out || !sizes || !md5 || !launcher_size ||
+      (launcher_size & 65535) || launcher_size > bank_end - 0x30000)
     return false;
   unsigned count = 0, factory = 0;
   bool checked = false;
@@ -201,9 +212,9 @@ bool layout_build_compact(const uint8_t old[4096], uint8_t out[4096],
       if (a != 0x20000 || u32(e + 28) || ++factory != 1)
         return false;
     } else if (!e[2] && e[3] >= 16 && e[3] < 32) {
-      if (a < 0x20000 + old_factory || a + n > LAYOUT_DATA_START || u32(e + 28))
+      if (a < 0x20000 + old_factory || a + n > bank_end || u32(e + 28))
         return false;
-    } else if (a >= 0x20000 && a < LAYOUT_DATA_START)
+    } else if (a >= 0x20000 && a < bank_end)
       return false;
     count++;
   }
@@ -212,7 +223,7 @@ bool layout_build_compact(const uint8_t old[4096], uint8_t out[4096],
   uint32_t total = 0;
   for (unsigned i = 0; i < LAYOUT_APP_LIMIT; i++) {
     if ((sizes[i] & 65535) ||
-        sizes[i] > LAYOUT_DATA_START - 0x20000 - launcher_size - total)
+        sizes[i] > bank_end - 0x20000 - launcher_size - total)
       return false;
     total += sizes[i];
   }

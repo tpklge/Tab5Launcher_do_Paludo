@@ -26,3 +26,8 @@ esp_err_t flash_allocate_apply(uint32_t r,const uint8_t*h,partition_progress_fn 
 esp_err_t catalog_alias_download(const char*a,const char*b){return ESP_ERR_NOT_FOUND;}
 
 esp_err_t flash_layout_apply(const uint32_t*s,const uint8_t*h,partition_progress_fn cb,void*u,char*m,size_t n){return ESP_ERR_NOT_SUPPORTED;}
+
+esp_err_t flash_allocate_apply_options(uint32_t r,const uint8_t*h,bool b,partition_progress_fn cb,void*u,char*m,size_t n){return flash_allocate_apply(r,h,cb,u,m,n);}
+esp_err_t flash_layout_apply_options(const uint32_t*s,const uint8_t*h,bool b,partition_progress_fn cb,void*u,char*m,size_t n){return flash_layout_apply(s,h,cb,u,m,n);}
+
+esp_err_t flash_snapshot_restore_options(const flash_snapshot_t*s,bool b,partition_progress_fn cb,void*u,char*m,size_t n){return flash_snapshot_restore(s,cb,u,m,n);}

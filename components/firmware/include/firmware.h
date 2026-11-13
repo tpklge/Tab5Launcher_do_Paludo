@@ -7,6 +7,8 @@ typedef struct {
   char path[FW_SOURCE_PATH_MAX], label[17];
   uint32_t offset, length;
   uint8_t sha256[32];
+  uint8_t subtype;
+  bool has_subtype;
 } firmware_region_t;
 typedef enum {
   FW_APP_ONLY,

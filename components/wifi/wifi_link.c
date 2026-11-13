@@ -4,10 +4,22 @@
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "freertos/task.h"
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "wifi_link";
+static atomic_bool s_cancel;
+void wifi_link_cancel(bool cancel) { atomic_store(&s_cancel, cancel); }
+static EventBits_t wait_connection(EventGroupHandle_t events) {
+  for (unsigned elapsed = 0; elapsed < 20000 && !atomic_load(&s_cancel); elapsed += 100) {
+    EventBits_t bits = xEventGroupWaitBits(events,
+        WIFI_LINK_CONNECTED | WIFI_LINK_DISCONNECTED, pdTRUE, pdFALSE,
+        pdMS_TO_TICKS(100));
+    if (bits) return bits;
+  }
+  return 0;
+}
 
 void wifi_link_restore_state(wifi_status_t *status) {
   status->state = status->associated && status->ip[0] ? WIFI_STATE_CONNECTED
@@ -39,6 +51,7 @@ wifi_result_t wifi_link_connect(const wifi_saved_network_t *network,
                                 size_t detail_size) {
   if (detail_size)
     detail[0] = 0;
+  if (atomic_load(&s_cancel)) return WIFI_RESULT_ERR_TRANSPORT;
   xSemaphoreTake(lock, portMAX_DELAY);
   bool connected = status->associated && status->ip[0];
   bool same = connected && strcmp(status->ssid, network->ssid) == 0;
@@ -79,9 +92,11 @@ wifi_result_t wifi_link_connect(const wifi_saved_network_t *network,
     err = esp_wifi_connect();
   EventBits_t bits = 0;
   if (err == ESP_OK)
-    bits = xEventGroupWaitBits(events,
-                               WIFI_LINK_CONNECTED | WIFI_LINK_DISCONNECTED,
-                               pdTRUE, pdFALSE, pdMS_TO_TICKS(20000));
+    bits = wait_connection(events);
+  if (atomic_load(&s_cancel)) {
+    snprintf(detail, detail_size, "Conexao interrompida para iniciar aplicativo.");
+    return WIFI_RESULT_ERR_TRANSPORT;
+  }
 
   xSemaphoreTake(lock, portMAX_DELAY);
   bool got_ip = status->state == WIFI_STATE_CONNECTED && status->associated &&
@@ -160,7 +175,10 @@ wifi_result_t wifi_link_connect_retry(const wifi_saved_network_t *network,
       return result;
     ESP_LOGW(TAG, "authentication expired (reason 2), retry %u/3 in %u ms",
              attempt + 2, backoff_ms[attempt]);
-    vTaskDelay(pdMS_TO_TICKS(backoff_ms[attempt]));
+    for (unsigned elapsed = 0; elapsed < backoff_ms[attempt]; elapsed += 100) {
+      if (atomic_load(&s_cancel)) return WIFI_RESULT_ERR_TRANSPORT;
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 #include "flash_snapshot.h"
+#include "mbedtls/md5.h"
 #include "boot_request.h"
 #include "launcher_store.h"
 #include <sys/stat.h>
@@ -9,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+const char *esp_err_to_name(int e){return "test";}
 static bool protected=true,guard_read_error,journal_read_error,journal_invalid;
 static uint8_t flash[0x1000000],original[0x1000000],record[16000];static size_t record_size;static int64_t tick;static uint32_t fail_at=UINT32_MAX;static unsigned writes,erases;
 static esp_partition_t running={0x20000,0x1f0000,"launcher"};
@@ -60,6 +62,42 @@ mkdir(LAUNCHER_ROOT,0700);assert(argc==2);init(argv[1]);char message[512];uint32
  manual[2]=0x40000;assert(!flash_layout_apply(manual,approved,proceed,NULL,message,sizeof(message)));
  assert(!memcmp(flash+0x30000,original+0x210000,8192));assert(!memcmp(flash+0x60000,original+0x610000,12288));
  assert(!memcmp(flash+0xa10000,original+0xa10000,0x5f0000));assert(!flash_operation_pending());
+ init(argv[1]);
+ assert(!flash_allocate_plan(0x20000,&allocation,message,sizeof(message)));
+ fail_at=0x30000;
+ assert(flash_allocate_apply_options(0x20000,allocation.digest,false,proceed,NULL,message,sizeof(message))!=ESP_OK);
+ assert(flash_operation_pending());
+ uint32_t kind;memcpy(&kind,record+8,4);assert(kind==6);
+ char work[512];memcpy(work,record+16,512);struct stat work_stat;
+ assert(!stat(work,&work_stat)&&work_stat.st_size==4096+8192+12288);
+ assert(!flash_operation_resume(proceed,NULL,message,sizeof(message)));
+ assert(!flash_operation_pending() && access(work,F_OK));
+ assert(!memcmp(flash+0x30000,original+0x210000,8192));
+ assert(!memcmp(flash+0x40000,original+0x610000,12288));
+ /* Build a minimal table without legacy data reservations. */
+ init(argv[1]);uint8_t table[4096];memset(table,255,sizeof(table));unsigned at=0;
+ for(unsigned j=0;j<3072&&flash[0x8000+j]==0xaa;j+=32){
+   uint8_t *row=flash+0x8000+j;
+   uint32_t address;memcpy(&address,row+4,4);
+   if((row[2]!=0&&address>=0x20000)||(!row[2]&&row[3]>=16))continue;
+   memcpy(table+at,row,32);at+=32;
+ }
+ table[at]=table[at+1]=0xeb;mbedtls_md5(table,at,table+at+16);
+ memcpy(flash+0x8000,table,4096);
+ memset(flash+0x30000,255,0xfc0000);
+ assert(!flash_allocate_plan(0x900000,&allocation,message,sizeof(message)));
+ assert(allocation.capacity==0xfc0000 && allocation.free_bytes>0x600000);
+ assert(!flash_allocate_apply_options(0x900000,allocation.digest,false,proceed,NULL,message,sizeof(message)));
+ memcpy(&kind,record+8,4);assert(kind==4 && !flash_operation_pending());
+ /* Existing app bytes and system rows cannot be overlapped by new data. */
+ old=erases;
+ assert(flash_data_create("bad",0x82,8192,0x30000,false,proceed,NULL,message,sizeof(message))!=ESP_OK&&erases==old);
+ assert(flash_data_create("launch_req",2,8192,0,false,proceed,NULL,message,sizeof(message))!=ESP_OK&&erases==old);
+ assert(!flash_data_create("assets",0x82,0x20000,0xfd0000,false,proceed,NULL,message,sizeof(message)));
+ assert(!flash_operation_pending());memcpy(&kind,record+8,4);assert(kind==5);
+ assert(!flash_allocate_plan(0,&allocation,message,sizeof(message)));
+ assert(allocation.capacity==0xfa0000);
+ assert(flash_data_create("assets",0x82,0x20000,0,false,proceed,NULL,message,sizeof(message))!=ESP_OK);
  assert(protected);
  puts("Flash snapshots: preserved apps across moved slots, full compatible restore, cancellation, protected bytes and interrupted migration resume passed.");
 }

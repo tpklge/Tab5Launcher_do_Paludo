@@ -80,7 +80,7 @@ static bool protected_equal(const uint8_t *a, const uint8_t *b) {
       uint32_t address = le32(e + 4), size = le32(e + 8);
       if (ota_entry(e)) {
         if (address < 0x20000 + layout_factory_size(from) ||
-            address + size > LAYOUT_DATA_START)
+            address + size > layout_app_end(from))
           return false;
         continue;
       }
@@ -98,7 +98,7 @@ static bool protected_equal(const uint8_t *a, const uint8_t *b) {
       if (!found)
         return false;
       if (factory_entry(e)) {
-        if ((size & 65535) || !size || size > LAYOUT_DATA_START - 0x30000)
+        if ((size & 65535) || !size || size > layout_app_end(from) - 0x30000)
           return false;
         factory = true;
       }
@@ -482,11 +482,11 @@ static esp_err_t copy_span(FILE *f, uint32_t source, uint32_t target,
     unsigned n = length - off > 4096 ? 4096 : length - off;
     if (!file_span(f, source + off, buf, n))
       return ESP_FAIL;
-    if ((e = target + off >= protected_end && target + off < 0xa10000
+    if ((e = target + off >= protected_end && target + off < 0xff0000
                  ? layout_app_erase(target + off, 4096, protected_end)
                  : esp_flash_erase_region(NULL, target + off, 4096)))
       return e;
-    if ((e = target + off >= protected_end && target + off < 0xa10000
+    if ((e = target + off >= protected_end && target + off < 0xff0000
                  ? layout_app_write(target + off, buf, n, protected_end)
                  : esp_flash_write(NULL, buf, target + off, n)))
       return e;
@@ -502,14 +502,123 @@ static esp_err_t copy_span(FILE *f, uint32_t source, uint32_t target,
   }
   return e;
 }
+/* A data creation transaction may add exactly one unencrypted user data row.
+ * Every existing entry must be byte-identical. */
+static const uint8_t *added_data(const operation_t *op) {
+  if (!table_valid(op->before) || !table_valid(op->after)) return NULL;
+  unsigned old_count = 0, new_count = 0;
+  const uint8_t *added = NULL;
+  for (unsigned at = 0; at < 3072 && op->before[at] == 0xaa; at += 32) {
+    bool found = false;
+    old_count++;
+    for (unsigned j = 0; j < 3072 && op->after[j] == 0xaa; j += 32)
+      if (!memcmp(op->before + at, op->after + j, 32)) found = true;
+    if (!found) return NULL;
+  }
+  for (unsigned at = 0; at < 3072 && op->after[at] == 0xaa; at += 32) {
+    const uint8_t *p = op->after + at;
+    bool found = false;
+    new_count++;
+    for (unsigned j = 0; j < 3072 && op->before[j] == 0xaa; j += 32)
+      if (!memcmp(p, op->before + j, 32)) found = true;
+    if (!found) { if (added) return NULL; added = p; }
+  }
+  if (new_count != old_count + 1 || !added || added[2] != 1 ||
+      (added[3] != 2 && added[3] != 0x81 && added[3] != 0x82 && added[3] != 0x83) ||
+      le32(added + 28) || !added[12] || !memchr(added + 12, 0, 16)) return NULL;
+  uint32_t a = le32(added + 4), n = le32(added + 8);
+  if (!((a >= 0x20000 && a + n <= 0xff0000) ||
+        (a == 0x9000 && n == 0x6000 && added[3] == 2))) return NULL;
+  return added;
+}
+/* Compact, disposable migration source: table plus occupied app bytes only.
+ * It is not a full-flash backup and remains available for interrupted moves. */
+static uint32_t move_offset(const operation_t *op, unsigned index) {
+  uint32_t off = 4096;
+  for (unsigned i = 0; i < index; i++) off += op->moves[i].length;
+  return off;
+}
+static esp_err_t migration_source(operation_t *op, partition_progress_fn cb,
+                                  void *u, char *m, size_t n) {
+  if (!op->count) { op->kind = 4; return ESP_OK; }
+  mkdir(LAUNCHER_PRIVATE, 0755);
+  snprintf(op->source.path, sizeof(op->source.path),
+           LAUNCHER_PRIVATE "/migration-%lld.work", (long long)esp_timer_get_time());
+  FILE *f = fopen(op->source.path, "wx");
+  if (!f) return ESP_FAIL;
+  uint8_t *buf = malloc(4096);
+  esp_err_t e = buf && fwrite(op->before, 1, 4096, f) == 4096 ? ESP_OK : ESP_FAIL;
+  for (unsigned i = 0; !e && i < op->count; i++) {
+    for (uint32_t off = 0; !e && off < op->moves[i].length; off += 4096) {
+      e = esp_flash_read(NULL, buf, op->moves[i].from + off, 4096);
+      if (!e && fwrite(buf, 1, 4096, f) != 4096) e = ESP_FAIL;
+      if (!e && cb && !cb(5, "Preparando copia temporaria dos apps", u))
+        e = ESP_ERR_INVALID_STATE;
+      vTaskDelay(1);
+    }
+  }
+  free(buf);
+  if (fflush(f) || fsync(fileno(f))) e = ESP_FAIL;
+  if (fclose(f)) e = ESP_FAIL;
+  if (!e) {
+    f = fopen(op->source.path, "rb");
+    e = f ? hash_region(f, 0, move_offset(op, op->count), op->source.sha256, false) : ESP_FAIL;
+    if (f) fclose(f);
+  }
+  if (e) unlink(op->source.path);
+  else op->kind = 6;
+  return e;
+}
 static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
                                void *u, char *m, size_t n) {
-  if ((op->kind != 1 && op->kind != 2 && op->kind != 3) || op->schema != 1 ||
+  if (op->kind == 4 || op->kind == 5) {
+    const uint8_t *data = op->kind == 5 ? added_data(op) : NULL;
+    if (op->schema != 1 || op->count ||
+        (op->kind == 5 ? !data : !protected_equal(op->before, op->after)))
+      return ESP_ERR_INVALID_ARG;
+    uint8_t *current = malloc(4096);
+    if (!current) return ESP_ERR_NO_MEM;
+    esp_err_t e = esp_flash_read(NULL, current, 0x8000, 4096);
+    if (!e && memcmp(current, op->before, 4096) &&
+        memcmp(current, op->after, 4096)) e = ESP_ERR_INVALID_STATE;
+    free(current);
+    if (!e && cb && !cb(0, "Atualizando mapa vazio", u))
+      e = ESP_ERR_INVALID_STATE;
+    op->active = 1;
+    if (!e) e = launcher_store_write(OP_KEY, op, sizeof(*op));
+    if (!e) e = durable_operation(op);
+    if (!e) e = guard_write(op);
+    if (!e && data) {
+      for (uint32_t off = 0; !e && off < le32(data + 8); off += 4096) {
+        e = esp_flash_erase_region(NULL, le32(data + 4) + off, 4096);
+        vTaskDelay(1);
+      }
+    }
+    if (!e) e = table_commit(op);
+    if (!e) {
+      op->active = 0;
+      e = launcher_store_write(OP_KEY, op, sizeof(*op));
+      uint32_t zero = 0;
+      if (!e) e = esp_flash_write(NULL, &zero, FLASH_GUARD_OFFSET, 4);
+    }
+    snprintf(m, n, "%s", e ? "Mapa interrompido; use Retomar em FLASH."
+                            : "Mapa atualizado e verificado.");
+    return e;
+  }
+  if ((op->kind != 1 && op->kind != 2 && op->kind != 3 && op->kind != 6) || op->schema != 1 ||
       op->count > 16 || !protected_equal(op->before, op->after) ||
       !memchr(op->source.path, 0, sizeof(op->source.path)))
     return ESP_ERR_INVALID_ARG;
   flash_snapshot_t checked;
-  esp_err_t e = flash_snapshot_validate(op->source.path, &checked, m, n);
+  esp_err_t e;
+  if (op->kind == 6) {
+    FILE *source = fopen(op->source.path, "rb");
+    struct stat st;
+    e = source && !fstat(fileno(source), &st) &&
+        st.st_size == move_offset(op, op->count)
+        ? hash_region(source, 0, st.st_size, checked.sha256, false) : ESP_FAIL;
+    if (source) fclose(source);
+  } else e = flash_snapshot_validate(op->source.path, &checked, m, n);
   if (e || memcmp(checked.sha256, op->source.sha256, 32))
     return e ? e : ESP_ERR_INVALID_CRC;
   uint8_t *buf = malloc(4096);
@@ -526,8 +635,8 @@ static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
     free(buf);
     return ESP_ERR_NO_MEM;
   }
-  if (!file_span(f, 0x8000, table, 4096) ||
-      memcmp(table, (op->kind == 1 || op->kind == 3) ? op->before : op->after,
+  if (!file_span(f, op->kind == 6 ? 0 : 0x8000, table, 4096) ||
+      memcmp(table, (op->kind == 1 || op->kind == 3 || op->kind == 6) ? op->before : op->after,
              4096))
     e = ESP_ERR_INVALID_CRC;
   if (!e && esp_flash_read(NULL, table, 0x8000, 4096))
@@ -540,10 +649,10 @@ static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
     move_t *x = &op->moves[i];
     bool source = false, target = false;
     if (x->from < 0x20000 + layout_factory_size(op->before) ||
-        x->from >= 0xa10000 ||
-        x->to < 0x20000 + layout_factory_size(op->after) || x->to >= 0xa10000 ||
-        !x->length || (x->length & 4095) || x->length > 0xa10000 - x->from ||
-        x->length > 0xa10000 - x->to) {
+        x->from >= layout_app_end(op->before) ||
+        x->to < 0x20000 + layout_factory_size(op->after) || x->to >= layout_app_end(op->after) ||
+        !x->length || (x->length & 4095) || x->length > layout_app_end(op->before) - x->from ||
+        x->length > layout_app_end(op->after) - x->to) {
       e = ESP_ERR_INVALID_ARG;
       break;
     }
@@ -565,7 +674,7 @@ static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
         e = ESP_ERR_INVALID_ARG;
     uint8_t digest[32];
     if (!e)
-      e = hash_region(f, x->from, x->length, digest, false);
+      e = hash_region(f, op->kind == 6 ? move_offset(op, i) : x->from, x->length, digest, false);
     if (!e && memcmp(digest, x->sha, 32))
       e = ESP_ERR_INVALID_CRC;
   }
@@ -585,9 +694,9 @@ static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
     e = durable_operation(op);
   if (!e)
     e = guard_write(op);
-  if (!e && (op->kind == 1 || op->kind == 3)) {
+  if (!e && (op->kind == 1 || op->kind == 3 || op->kind == 6)) {
     for (uint32_t off = 0x20000 + layout_factory_size(op->after);
-         !e && off < 0xa10000; off += 65536) {
+         !e && off < layout_app_end(op->after); off += 65536) {
       e = layout_app_erase(off, 65536,
                            0x20000 + layout_factory_size(op->after));
       if (cb)
@@ -598,12 +707,12 @@ static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
       move_t *x = &op->moves[i];
       if (x->from < 0x20000 + layout_factory_size(op->before) ||
           x->to < 0x20000 + layout_factory_size(op->after) || !x->length ||
-          (x->length & 4095) || x->length > 0xa10000 - x->from ||
-          x->length > 0xa10000 - x->to) {
+          (x->length & 4095) || x->length > layout_app_end(op->before) - x->from ||
+          x->length > layout_app_end(op->after) - x->to) {
         e = ESP_ERR_INVALID_ARG;
         break;
       }
-      e = copy_span(f, x->from, x->to, x->length, buf,
+      e = copy_span(f, op->kind == 6 ? move_offset(op, i) : x->from, x->to, x->length, buf,
                     0x20000 + layout_factory_size(op->after));
       uint8_t actual[32];
       if (!e)
@@ -646,6 +755,7 @@ static esp_err_t run_operation(operation_t *op, partition_progress_fn cb,
       e = esp_flash_write(NULL, &zero, FLASH_GUARD_OFFSET, 4);
     }
   }
+  if (!e && op->kind == 6) unlink(op->source.path);
   snprintf(m, n, "%s",
            e ? "Operação interrompida. Não inicie apps; use Retomar em FLASH."
              : "Flash verificada. Reinicie o Tab5.");
@@ -677,6 +787,7 @@ static esp_err_t migration_model(const uint32_t *s, unsigned count,
     if (!buf)
       return ESP_ERR_NO_MEM;
     for (uint32_t end = size; end; end -= 4096) {
+      if (!(end & 65535)) vTaskDelay(1);
       e = esp_flash_read(NULL, buf, address + end - 4096, 4096);
       if (e)
         break;
@@ -766,7 +877,7 @@ esp_err_t flash_migrate_apply(const uint32_t *s, unsigned count,
   free(op);
   return e;
 }
-esp_err_t flash_snapshot_restore(const flash_snapshot_t *s,
+esp_err_t flash_snapshot_restore_options(const flash_snapshot_t *s, bool backup,
                                  partition_progress_fn cb, void *u, char *m,
                                  size_t n) {
   if (!s || flash_operation_pending())
@@ -790,7 +901,7 @@ esp_err_t flash_snapshot_restore(const flash_snapshot_t *s,
       fclose(f);
     }
   }
-  if (!e) {
+  if (!e && backup) {
     flash_snapshot_t previous;
     e = flash_snapshot_create(&previous, cb, u, m, n);
   }
@@ -817,7 +928,7 @@ static esp_err_t allocation_model(uint32_t required, const uint32_t *requested,
                                   char *m, size_t n) {
   if (supported() || flash_operation_pending())
     return ESP_ERR_INVALID_STATE;
-  if (required > LAYOUT_DATA_START - 0x30000) {
+  if (required > 0xff0000 - 0x30000) {
     snprintf(m, n,
              "Imagem maior que o banco de aplicativos disponivel nesta flash.");
     return ESP_ERR_INVALID_SIZE;
@@ -846,13 +957,14 @@ static esp_err_t allocation_model(uint32_t required, const uint32_t *requested,
       continue;
     unsigned slot = p[3] - 16;
     uint32_t address = le32(p + 4), size = le32(p + 8);
-    if (address < 0x20000 + old_factory || address + size > LAYOUT_DATA_START) {
+    if (address < 0x20000 + old_factory || address + size > layout_app_end(op->before)) {
       e = ESP_ERR_NOT_SUPPORTED;
       break;
     }
     from[slot] = address;
     out->reserved[slot] = size;
     for (uint32_t end = size; end; end -= 4096) {
+      if (!(end & 65535)) vTaskDelay(1);
       e = esp_flash_read(NULL, buf, address + end - 4096, 4096);
       if (e)
         break;
@@ -887,7 +999,7 @@ static esp_err_t allocation_model(uint32_t required, const uint32_t *requested,
   free(buf);
   if (e)
     return e;
-  uint32_t capacity = LAYOUT_DATA_START - 0x20000 - factory;
+  uint32_t capacity = layout_app_end(op->before) - 0x20000 - factory;
   if (requested) {
     if (required)
       return ESP_ERR_INVALID_ARG;
@@ -961,6 +1073,7 @@ static esp_err_t allocation_model(uint32_t required, const uint32_t *requested,
       }
       address += sizes[i];
     }
+  out->capacity = capacity;
   out->launcher_size = factory;
   out->free_bytes = capacity - (uint32_t)sum - need;
   out->changed = memcmp(op->before, op->after, 4096) != 0;
@@ -985,7 +1098,7 @@ esp_err_t flash_allocate_plan(uint32_t required, flash_allocation_t *out,
   free(op);
   return e;
 }
-esp_err_t flash_allocate_apply(uint32_t required, const uint8_t expected[32],
+esp_err_t flash_allocate_apply_options(uint32_t required, const uint8_t expected[32], bool backup,
                                partition_progress_fn cb, void *u, char *m,
                                size_t n) {
   if (!expected)
@@ -1002,8 +1115,9 @@ esp_err_t flash_allocate_apply(uint32_t required, const uint8_t expected[32],
     free(op);
     return ESP_OK;
   }
-  if (!e)
-    e = flash_snapshot_create(&op->source, cb, u, m, n);
+  if (!e && !op->count) op->kind = 4;
+  if (!e && backup) e = flash_snapshot_create(&op->source, cb, u, m, n);
+  if (!e && !backup) e = migration_source(op, cb, u, m, n);
   if (!e)
     e = run_operation(op, cb, u, m, n);
   free(op);
@@ -1023,8 +1137,8 @@ esp_err_t flash_layout_plan(const uint32_t sizes[16], flash_allocation_t *out,
   free(op);
   return e;
 }
-esp_err_t flash_layout_apply(const uint32_t sizes[16],
-                             const uint8_t expected[32],
+esp_err_t flash_layout_apply_options(const uint32_t sizes[16],
+                             const uint8_t expected[32], bool backup,
                              partition_progress_fn cb, void *u, char *m,
                              size_t n) {
   if (!sizes || !expected)
@@ -1037,10 +1151,92 @@ esp_err_t flash_layout_apply(const uint32_t sizes[16],
   if (!e && memcmp(expected, allocation.digest, 32))
     e = ESP_ERR_INVALID_STATE;
   if (!e && allocation.changed) {
-    e = flash_snapshot_create(&op->source, cb, u, m, n);
+    if (!op->count) op->kind = 4;
+    if (backup) e = flash_snapshot_create(&op->source, cb, u, m, n);
+    else e = migration_source(op, cb, u, m, n);
     if (!e)
       e = run_operation(op, cb, u, m, n);
   }
   free(op);
   return e;
+}
+
+esp_err_t flash_allocate_apply(uint32_t required, const uint8_t expected[32],
+ partition_progress_fn cb, void *u, char *m, size_t n) {
+  return flash_allocate_apply_options(required, expected, false, cb, u, m, n);
+}
+esp_err_t flash_layout_apply(const uint32_t sizes[16], const uint8_t expected[32],
+ partition_progress_fn cb, void *u, char *m, size_t n) {
+  return flash_layout_apply_options(sizes, expected, false, cb, u, m, n);
+}
+
+static void data_put32(uint8_t *p, uint32_t n) {
+  for (unsigned i = 0; i < 4; i++) p[i] = n >> (8 * i);
+}
+esp_err_t flash_data_create(const char *label, uint8_t subtype, uint32_t size,
+ uint32_t address, bool backup, partition_progress_fn cb, void *u, char *m, size_t n) {
+  if (!label || !*label || strlen(label) > 15 || !size || (size & 4095) ||
+      size > 0xfd0000 || (subtype != 2 && subtype != 0x81 && subtype != 0x82 && subtype != 0x83))
+    return ESP_ERR_INVALID_ARG;
+  for (const char *p = label; *p; p++)
+    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+          (*p >= '0' && *p <= '9') || *p == '_')) return ESP_ERR_INVALID_ARG;
+  if (!strcmp(label,"launch_req") || !strcmp(label,"otadata") ||
+      !strcmp(label,"phy_init") || !strcmp(label,"coredump") ||
+      !strcmp(label,"nvs_keys")) return ESP_ERR_INVALID_ARG;
+  if (supported() || flash_operation_pending()) return ESP_ERR_INVALID_STATE;
+  operation_t *op = calloc(1, sizeof(*op));
+  if (!op) return ESP_ERR_NO_MEM;
+  esp_err_t e = esp_flash_read(NULL, op->before, 0x8000, 4096);
+  unsigned entries = 0;
+  if (!e && !table_valid(op->before)) e = ESP_ERR_INVALID_CRC;
+  for (unsigned at = 0; !e && at < 3072 && op->before[at] == 0xaa; at += 32) {
+    entries++;
+    if (!strncmp((const char *)op->before + at + 12, label, 16)) e = ESP_ERR_INVALID_STATE;
+  }
+  if (entries >= 94) e = ESP_ERR_NO_MEM;
+  bool automatic = address == 0;
+  if (automatic) address = subtype == 2 && size == 0x6000 ? 0x9000 : 0xff0000 - size;
+  bool available = false;
+  while (!e) {
+    available = address && !(address & 4095) &&
+      ((address >= 0x20000 && address <= 0xff0000 && size <= 0xff0000 - address) ||
+       (address == 0x9000 && size == 0x6000 && subtype == 2));
+    for (unsigned i = 0; available && i < entries; i++) {
+      const uint8_t *row = op->before + i * 32;
+      uint32_t a = le32(row + 4), len = le32(row + 8);
+      if (address < a + len && a < address + size) available = false;
+    }
+    if (!available && automatic && address == 0x9000) {
+      address = 0xff0000 - size;
+      continue;
+    }
+    if (available || !automatic || address < 0x21000) break;
+    address -= 4096;
+  }
+  if (!e && !available) e = ESP_ERR_NO_MEM;
+  if (!e) {
+    memset(op->after, 255, 4096);
+    memcpy(op->after, op->before, entries * 32);
+    uint8_t *row = op->after + entries * 32;
+    memset(row, 0, 32); row[0]=0xaa; row[1]=0x50; row[2]=1; row[3]=subtype;
+    data_put32(row + 4, address); data_put32(row + 8, size);
+    memcpy(row + 12, label, strlen(label));
+    row += 32; row[0]=row[1]=0xeb;
+    if (!md5(op->after, (entries + 1) * 32, row + 16)) e = ESP_FAIL;
+    op->kind = 5; op->schema = 1;
+    if (!e && !added_data(op)) e = ESP_ERR_INVALID_ARG;
+    if (!e && backup) e = flash_snapshot_create(&op->source, cb, u, m, n);
+    if (!e) e = run_operation(op, cb, u, m, n);
+  }
+  if (!e) snprintf(m,n,"Particao %s criada @0x%lx (%lu KiB). Reinicie.",label,
+                    (unsigned long)address,(unsigned long)size/1024);
+  else snprintf(m,n,"Nao foi possivel criar a particao: %s",esp_err_to_name(e));
+  free(op);
+  return e;
+}
+
+esp_err_t flash_snapshot_restore(const flash_snapshot_t *s, partition_progress_fn cb,
+ void *u, char *m, size_t n) {
+  return flash_snapshot_restore_options(s, false, cb, u, m, n);
 }

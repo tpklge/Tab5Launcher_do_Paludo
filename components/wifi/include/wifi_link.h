@@ -7,6 +7,7 @@
 #define WIFI_LINK_DISCONNECTED BIT1
 
 /* Serial worker owns connection attempts; event-loop updates use the same lock. */
+void wifi_link_cancel(bool cancel);
 void wifi_link_restore_state(wifi_status_t *status);
 wifi_result_t wifi_link_connect(const wifi_saved_network_t *network,
                                wifi_status_t *status, SemaphoreHandle_t lock,

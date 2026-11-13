@@ -16,6 +16,7 @@
 typedef struct {
   FILE *file;
   uint32_t base, length;
+  unsigned reads;
 } reader_t;
 static uint32_t le32(const uint8_t *p) {
   return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 |
@@ -23,6 +24,7 @@ static uint32_t le32(const uint8_t *p) {
 }
 static bool read_at(void *ctx, uint32_t off, void *out, size_t n) {
   reader_t *r = ctx;
+  if (++r->reads % 32 == 0) vTaskDelay(1);
   return off <= r->length && n <= r->length - off &&
          fseek(r->file, r->base + off, SEEK_SET) == 0 &&
          fread(out, 1, n, r->file) == n;
@@ -69,7 +71,7 @@ esp_err_t firmware_hash_region(const firmware_region_t *region,
   bool ok = fstat(fileno(f), &st) == 0 &&
             region->offset <= (uint64_t)st.st_size &&
             region->length <= (uint64_t)st.st_size - region->offset;
-  reader_t r = {f, region->offset, region->length};
+  reader_t r = {f, region->offset, region->length, 0};
   if (ok)
     ok = digest(&r, r.length, out);
   fclose(f);
@@ -92,8 +94,17 @@ static bool parse_app(reader_t *r, firmware_info_t *info, bool padded,
     off += n;
   }
   uint32_t length = ((off + 16) & ~15u) + (header[23] ? 32 : 0);
-  if (length > r->length || (!padded && length != r->length))
-    return false;
+  if (length > r->length) return false;
+  if (!padded && length != r->length) {
+    /* Exporters may pad an app to its partition size. Reject non-erased tails. */
+    uint8_t tail[256];
+    for (uint32_t at = length; at < r->length;) {
+      unsigned n = r->length - at < sizeof(tail) ? r->length - at : sizeof(tail);
+      if (!read_at(r, at, tail, n)) return false;
+      for (unsigned i = 0; i < n; i++) if (tail[i] != 0xff) return false;
+      at += n;
+    }
+  }
   esp_chip_info_t chip;
   esp_chip_info(&chip);
   if (!firmware_parse(r, read_at, check_hash, length, chip.revision,
@@ -216,7 +227,7 @@ static bool manifest(const char *path, firmware_info_t *info, char *error,
       break;
     firmware_region_t *r = &info->data[info->data_count];
     const char *label = string(item, "label");
-    if (!label || (strcmp(label, "vfs") && strcmp(label, "spiffs"))) {
+    if (!label || (!*label || strlen(label) > 16 || !strcmp(label, "launch_req") || !strcmp(label, "otadata") || !strcmp(label, "coredump") || !strcmp(label, "phy_init") || !strcmp(label, "nvs_keys"))) {
       ok = false;
       break;
     }
@@ -235,7 +246,7 @@ static bool manifest(const char *path, firmware_info_t *info, char *error,
     if (!f)
       ok = false;
     else {
-      reader_t r = {f, 0, info->app.length};
+      reader_t r = {f, 0, info->app.length, 0};
       ok = parse_app(&r, info, false, error, size);
       fclose(f);
     }
@@ -286,19 +297,19 @@ static bool merged(reader_t *file, const char *path, firmware_info_t *info,
       if (++apps > 1 || (addr & 65535))
         return false;
       reader_t r = {file->file, addr,
-                    file->length - addr < len ? file->length - addr : len};
+                    file->length - addr < len ? file->length - addr : len, 0};
       if (!parse_app(&r, info, true, error, size))
         return false;
       snprintf(info->app.path, sizeof(info->app.path), "%s", path);
-    } else if (e[2] == 1 && (e[3] == 0x81 || e[3] == 0x82) &&
+    } else if (e[2] == 1 && (e[3] == 2 || e[3] == 0x81 || e[3] == 0x82 || e[3] == 0x83) &&
                len > file->length - addr) {
       return false;
-    } else if (e[2] == 1 && (e[3] == 0x81 || e[3] == 0x82) &&
+    } else if (e[2] == 1 && (e[3] == 2 || e[3] == 0x81 || e[3] == 0x82 || e[3] == 0x83) &&
                len <= file->length - addr) {
       char label[17];
       memcpy(label, e + 12, 16);
       label[16] = 0;
-      if (strcmp(label, "vfs") && strcmp(label, "spiffs"))
+      if (!*label || strlen(label) > 16 || !strcmp(label, "launch_req") || !strcmp(label, "otadata") || !strcmp(label, "coredump") || !strcmp(label, "phy_init") || !strcmp(label, "nvs_keys"))
         return false;
       if (info->data_count == FW_DATA_MAX)
         return false;
@@ -307,7 +318,8 @@ static bool merged(reader_t *file, const char *path, firmware_info_t *info,
       snprintf(r->label, sizeof(r->label), "%s", label);
       r->offset = addr;
       r->length = len;
-      reader_t source = {file->file, addr, len};
+      r->subtype = e[3]; r->has_subtype = true;
+      reader_t source = {file->file, addr, len, 0};
       if (!digest(&source, len, r->sha256))
         return false;
     }
@@ -328,7 +340,7 @@ static esp_err_t analyze_impl(const char *path, firmware_info_t *info,
   struct stat st;
   bool ok = fstat(fileno(f), &st) == 0 && st.st_size > 0 &&
             st.st_size <= FW_MAX_FILE_SIZE;
-  reader_t r = {f, 0, ok ? (uint32_t)st.st_size : 0};
+  reader_t r = {f, 0, ok ? (uint32_t)st.st_size : 0, 0};
   if (ok)
     ok = digest(&r, r.length, info->source_sha256);
   const char *ext = strrchr(path, '.');
@@ -384,8 +396,15 @@ static esp_err_t analyze_impl(const char *path, firmware_info_t *info,
     if (ok && magic == 0xe9) {
       snprintf(info->app.path, sizeof(info->app.path), "%s", path);
       ok = parse_app(&r, info, false, error, size);
-    } else if (ok)
+    }
+    /* A merged image normally begins with a bootloader's E9 header too. */
+    if (!ok || magic != 0xe9) {
+      memset(&info->image, 0, sizeof(info->image));
+      memset(&info->app, 0, sizeof(info->app));
+      info->data_count = 0;
+      if (error && size) error[0] = 0;
       ok = merged(&r, path, info, error, size);
+    }
   }
   if (f)
     fclose(f);

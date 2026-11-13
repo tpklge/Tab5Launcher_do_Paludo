@@ -22,7 +22,7 @@ bool flash_operation_pending(void);
 esp_err_t flash_operation_resume(partition_progress_fn, void *, char *, size_t);
 typedef struct {
   uint8_t digest[32];
-  uint32_t address, size, free_bytes, launcher_size;
+  uint32_t address, size, free_bytes, launcher_size, capacity;
   uint32_t reserved[16], minimum[16];
   int slot;
   bool changed;
@@ -39,3 +39,10 @@ esp_err_t flash_layout_apply(const uint32_t sizes[16], const uint8_t[32],
 
 /* Unknown/corrupt guard or journal is an error, never a clean state. */
 esp_err_t flash_operation_status(bool *pending);
+
+esp_err_t flash_allocate_apply_options(uint32_t,const uint8_t[32],bool,partition_progress_fn,void*,char*,size_t);
+esp_err_t flash_layout_apply_options(const uint32_t[16],const uint8_t[32],bool,partition_progress_fn,void*,char*,size_t);
+
+esp_err_t flash_data_create(const char*,uint8_t,uint32_t,uint32_t,bool,partition_progress_fn,void*,char*,size_t);
+
+esp_err_t flash_snapshot_restore_options(const flash_snapshot_t*,bool,partition_progress_fn,void*,char*,size_t);

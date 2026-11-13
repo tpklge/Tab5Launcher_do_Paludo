@@ -44,10 +44,12 @@ static unsigned bits;
 static bool disconnect_pending, connect_pending, wrong_order, drop_disconnect_ack;
 static int connect_mode, pending_mode, auth_expire_remaining, connects, disconnects;
 static unsigned waited_ms;
-void vTaskDelay(unsigned ticks) { assert(status.state==WIFI_STATE_RECONNECTING); waited_ms+=ticks; }
+static bool cancel_wait, cancel_delay;
+void vTaskDelay(unsigned ticks) { assert(status.state==WIFI_STATE_RECONNECTING); waited_ms+=ticks; if(cancel_delay) wifi_link_cancel(true); }
 static wifi_config_t configured;
 unsigned xEventGroupClearBits(void *g,unsigned clear) { unsigned old=bits; bits &= ~clear; return old; }
 unsigned xEventGroupWaitBits(void *g,unsigned wanted,int clear,int all,unsigned timeout) {
+    if(cancel_wait) { wifi_link_cancel(true); return 0; }
     if(disconnect_pending && !drop_disconnect_ack) {
         disconnect_pending=false;
         status.associated=false; status.ip[0]=0; status.state=WIFI_STATE_READY;
@@ -145,6 +147,12 @@ int main(void) {
     reset_radio(); connect_mode=1;
     assert(wifi_link_connect_retry(&other,&status,(void*)1,(void*)1,detail,sizeof(detail))==WIFI_RESULT_ERR_REFUSED);
     assert(connects==1 && waited_ms==0); /* other rejection causes no retry storm */
+    reset_radio(); cancel_wait=true; int cancel_before=connects;
+    assert(wifi_link_connect_retry(&other,&status,(void*)1,(void*)1,detail,sizeof(detail))==WIFI_RESULT_ERR_TRANSPORT);
+    assert(connects==cancel_before+1); cancel_wait=false;wifi_link_cancel(false);
+    reset_radio(); auth_expire_remaining=9;cancel_delay=true;
+    assert(wifi_link_connect_retry(&other,&status,(void*)1,(void*)1,detail,sizeof(detail))==WIFI_RESULT_ERR_TRANSPORT);
+    assert(connects==1 && waited_ms==100);cancel_delay=false;wifi_link_cancel(false);
     /* Bounded retention, no duplicate SSIDs and durable forget. */
     for(int i=0;i<12;i++) { snprintf(network.ssid,sizeof(network.ssid),"AP%02d",i); assert(wifi_store_put(&network)==ESP_OK); }
     assert(wifi_saved_count()==WIFI_MAX_SAVED);

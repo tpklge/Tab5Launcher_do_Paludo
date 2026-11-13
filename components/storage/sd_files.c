@@ -736,3 +736,28 @@ int sd_files_copy_progress(const char *p, const char *d, sd_copy_progress_fn cb,
   sd_media_release(p);
   return result;
 }
+
+/* Filter before pagination so hidden entries never leave empty browser pages. */
+int sd_files_list_bins(const char *path, unsigned page, sd_listing_t *list) {
+  if (!list || page > 16384 / SD_PAGE_SIZE) return EINVAL;
+  memset(list, 0, sizeof(*list));
+  sd_entry_t *all = NULL;
+  unsigned count = 0, visible = 0;
+  int err = sd_files_list_all(path, &all, &count, false);
+  if (err) return err;
+  for (unsigned i = 0; i < count; i++) {
+    const char *ext = strrchr(all[i].name, '.');
+    if (all[i].name[0] == '.' ||
+        (!all[i].directory && (!ext || strcasecmp(ext, ".bin")))) continue;
+    all[visible++] = all[i];
+  }
+  list->total = visible;
+  list->page = page;
+  unsigned begin = page * SD_PAGE_SIZE;
+  if (begin < visible) {
+    list->count = visible - begin < SD_PAGE_SIZE ? visible - begin : SD_PAGE_SIZE;
+    memcpy(list->entries, all + begin, list->count * sizeof(*all));
+  }
+  free(all);
+  return 0;
+}

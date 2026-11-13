@@ -1,4 +1,7 @@
 #include "ui_visual.h"
+#ifdef ESP_PLATFORM
+#include "diagnostics.h"
+#endif
 #include "board.h"
 #include "installer.h"
 #include "storage.h"
@@ -29,6 +32,9 @@ bool ui_visual_activity(void) {
   if (s_dimmed || s_off)
     board_backlight(storage_get_config()->bright);
   s_dimmed = s_off = false;
+#ifdef ESP_PLATFORM
+  diagnostics_idle_checkpoint(0, 0);
+#endif
   lv_display_trigger_activity(board_display());
   return consumed;
 }
@@ -82,6 +88,9 @@ static void clock_update(void) {
   }
 }
 static void overlay_open(void) {
+#ifdef ESP_PLATFORM
+  diagnostics_idle_checkpoint(lv_display_get_inactive_time(board_display()) / 1000, 2);
+#endif
   const launcher_config_t *cfg = storage_get_config();
   s_overlay = lv_obj_create(lv_layer_top());
   lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_USER_1);
@@ -157,6 +166,9 @@ static void timer(lv_timer_t *t) {
   }
   const launcher_config_t *c = storage_get_config();
   uint32_t idle = lv_display_get_inactive_time(board_display()) / 1000;
+#ifdef ESP_PLATFORM
+  diagnostics_idle_checkpoint(idle, s_off ? 3 : s_overlay ? 2 : s_dimmed ? 1 : 0);
+#endif
   if (!idle && (s_dimmed || s_off))
     ui_visual_activity();
   if (c->dim_s && idle >= c->dim_s && !s_dimmed) {
@@ -173,7 +185,8 @@ static void timer(lv_timer_t *t) {
       s_off = true;
     }
   }
-  clock_update();
+  /* Dark screens do not need transformed labels/layers redrawn each minute. */
+  if (!s_off) clock_update();
 }
 void ui_visual_reload(void) {
   if (!s_root)

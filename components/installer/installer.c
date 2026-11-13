@@ -61,6 +61,7 @@ static void pending_clear(void) {
   if (launcher_state_open("install_state", LAUNCHER_STATE_READWRITE, &h) ==
       ESP_OK) {
     launcher_state_erase_key(h, "pending");
+    launcher_state_erase_key(h, "pending_backup");
     launcher_state_commit(h);
     launcher_state_close(h);
   }
@@ -103,13 +104,13 @@ esp_err_t installer_cancel_pending(const char *source) {
 static esp_err_t partition_digest(const esp_partition_t *part,
                                   uint8_t digest[32]);
 static const esp_partition_t *data_target(const firmware_region_t *r) {
-  if (strcmp(r->label, "vfs") && strcmp(r->label, "spiffs"))
-    return NULL;
+  if (!r->label[0] || !strcmp(r->label, "launch_req")) return NULL;
   const esp_partition_t *p = esp_partition_find_first(
       ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, r->label);
   if (!p || p->readonly || p->encrypted ||
-      (p->subtype != 0x81 && p->subtype != 0x82) || r->length > p->size ||
-      (p->address != 0xa10000 && p->address != 0xf16000))
+      (r->has_subtype && r->subtype != p->subtype) ||
+      (p->subtype != 2 && p->subtype != 0x81 && p->subtype != 0x82 && p->subtype != 0x83) || r->length > p->size ||
+      (p->address < 0x20000 && !(p->subtype == 2 && p->address == 0x9000 && p->size == 0x6000)))
     return NULL;
   return p;
 }
@@ -194,13 +195,24 @@ esp_err_t installer_plan(const char *path, install_plan_t *plan, char *error,
              "continuar.");
     return ESP_ERR_INVALID_STATE;
   }
+  if (pending_read(&pending) && !strcmp(path, pending.path)) {
+    launcher_state_handle_t h;
+    if (launcher_state_open("install_state", LAUNCHER_STATE_READONLY, &h) == ESP_OK) {
+      uint8_t backup = 0;
+      launcher_state_get_u8(h, "pending_backup", &backup);
+      plan->backup_before_changes = backup == 1;
+      launcher_state_close(h);
+    }
+  }
   for (unsigned i = 0; i < plan->firmware.data_count; i++) {
     const firmware_region_t *r = &plan->firmware.data[i];
     const esp_partition_t *p = data_target(r);
     if (!p || (plan->firmware.kind == FW_MERGED && r->offset != p->address) ||
         partition_digest(p, plan->data_sha256[i]) != ESP_OK) {
-      snprintf(error, size, "Particao de dados incompativel ou protegida: %s",
-               r->label);
+      snprintf(error, size,
+        "Dados exigem particao compativel: %s (%lu KiB). Crie em FLASH / + Dados%s.",
+        r->label, (unsigned long)((r->length + 1023) / 1024),
+        plan->firmware.kind == FW_MERGED ? ", no offset da imagem" : "");
       return ESP_ERR_NOT_SUPPORTED;
     }
   }
@@ -481,6 +493,7 @@ static esp_err_t stage_pending_source(const install_plan_t *plan) {
   if (e)
     return e;
   e = launcher_state_set_blob(h, "pending", &pending, sizeof(pending));
+  if (!e) e = launcher_state_set_u8(h, "pending_backup", plan->backup_before_changes);
   if (!e)
     e = launcher_state_commit(h);
   launcher_state_close(h);
@@ -515,7 +528,7 @@ static esp_err_t execute_locked(const install_plan_t *plan,
   }
   if (plan->firmware.kind == FW_DATA_BACKUP) {
     const esp_partition_t *data = data_target(&plan->firmware.data[0]);
-    if (!data || backup(data, progress, user, message, size) != ESP_OK)
+    if (!data || (plan->backup_before_changes && backup(data, progress, user, message, size) != ESP_OK))
       return ESP_FAIL;
     if (progress && !progress(20, "Preparando restauracao", user))
       return ESP_ERR_INVALID_STATE;
@@ -546,7 +559,7 @@ static esp_err_t execute_locked(const install_plan_t *plan,
       wifi_resume();
       return pause;
     }
-    esp_err_t migration = flash_allocate_apply(required, plan->layout_sha256,
+    esp_err_t migration = flash_allocate_apply_options(required, plan->layout_sha256, plan->backup_before_changes,
                                                progress, user, message, size);
     if (migration != ESP_OK) {
       if (!flash_operation_pending())
@@ -573,14 +586,14 @@ static esp_err_t execute_locked(const install_plan_t *plan,
       plan->replaces_app &&
       !strcmp(plan->replaced_project, plan->firmware.image.project) &&
       esp_partition_get_sha256(part, previous_identity) == ESP_OK;
-  if (fresh.replaces_app &&
+  if (plan->backup_before_changes && fresh.replaces_app &&
       backup(part, progress, user, message, size) != ESP_OK) {
     snprintf(message, size, "Backup nao concluido; nenhum app apagado");
     return ESP_FAIL;
   }
   for (unsigned i = 0; i < plan->firmware.data_count; i++) {
     const esp_partition_t *data = data_target(&plan->firmware.data[i]);
-    if (!data || backup(data, progress, user, message, size) != ESP_OK) {
+    if (!data || (plan->backup_before_changes && backup(data, progress, user, message, size) != ESP_OK)) {
       snprintf(message, size,
                "Backup dos dados falhou; nenhuma particao de dados apagada.");
       return ESP_FAIL;
@@ -1023,7 +1036,7 @@ esp_err_t installer_full_backup(flash_snapshot_t *out, installer_progress_fn cb,
   xSemaphoreGive(s_install_lock);
   return e;
 }
-esp_err_t installer_full_restore(const flash_snapshot_t *source,
+esp_err_t installer_full_restore_options(const flash_snapshot_t *source, bool backup,
                                  installer_progress_fn cb, void *u, char *m,
                                  size_t n) {
   STORAGE_WRITE_GUARD(ESP_ERR_INVALID_STATE);
@@ -1034,7 +1047,7 @@ esp_err_t installer_full_restore(const flash_snapshot_t *source,
   if (!e)
     e = boot_mgr_set_default(-1);
   if (!e)
-    e = flash_snapshot_restore(source, cb, u, m, n);
+    e = flash_snapshot_restore_options(source, backup, cb, u, m, n);
   if (e && !flash_operation_pending())
     wifi_resume();
   if (!e && !storage_prepare_reboot(5000)) {
@@ -1121,7 +1134,7 @@ esp_err_t installer_uninstall_data(int slot, const uint8_t expected[32],
   return installer_uninstall_options(slot, expected, true, mask, cb, u, m, n);
 }
 
-esp_err_t installer_compact(const uint8_t expected[32],
+esp_err_t installer_compact_options(const uint8_t expected[32], bool backup,
                             installer_progress_fn cb, void *u, char *m,
                             size_t n) {
   STORAGE_WRITE_GUARD(ESP_ERR_INVALID_STATE);
@@ -1130,7 +1143,7 @@ esp_err_t installer_compact(const uint8_t expected[32],
   atomic_store(&s_busy, true);
   esp_err_t e = wifi_pause_wait(15000);
   if (!e)
-    e = flash_allocate_apply(0, expected, cb, u, m, n);
+    e = flash_allocate_apply_options(0, expected, backup, cb, u, m, n);
   if (e)
     wifi_resume();
   if (!e && !storage_prepare_reboot(5000)) {
@@ -1144,8 +1157,8 @@ esp_err_t installer_compact(const uint8_t expected[32],
   return e;
 }
 
-esp_err_t installer_layout_apply(const uint32_t sizes[16],
-                                 const uint8_t expected[32],
+esp_err_t installer_layout_apply_options(const uint32_t sizes[16],
+                                 const uint8_t expected[32], bool backup,
                                  installer_progress_fn cb, void *u, char *m,
                                  size_t n) {
   STORAGE_WRITE_GUARD(ESP_ERR_INVALID_STATE);
@@ -1154,7 +1167,7 @@ esp_err_t installer_layout_apply(const uint32_t sizes[16],
   atomic_store(&s_busy, true);
   esp_err_t e = wifi_pause_wait(15000);
   if (!e)
-    e = flash_layout_apply(sizes, expected, cb, u, m, n);
+    e = flash_layout_apply_options(sizes, expected, backup, cb, u, m, n);
   if (e && !flash_operation_pending())
     wifi_resume();
   if (!e && !storage_prepare_reboot(5000)) {
@@ -1166,4 +1179,18 @@ esp_err_t installer_layout_apply(const uint32_t sizes[16],
   atomic_store(&s_busy, false);
   xSemaphoreGive(s_install_lock);
   return e;
+}
+
+esp_err_t installer_compact(const uint8_t expected[32], installer_progress_fn cb,
+ void *u, char *m, size_t n) {
+  return installer_compact_options(expected, false, cb, u, m, n);
+}
+esp_err_t installer_layout_apply(const uint32_t sizes[16], const uint8_t expected[32],
+ installer_progress_fn cb, void *u, char *m, size_t n) {
+  return installer_layout_apply_options(sizes, expected, false, cb, u, m, n);
+}
+
+esp_err_t installer_full_restore(const flash_snapshot_t *s, installer_progress_fn cb,
+ void *u, char *m, size_t n) {
+  return installer_full_restore_options(s, false, cb, u, m, n);
 }

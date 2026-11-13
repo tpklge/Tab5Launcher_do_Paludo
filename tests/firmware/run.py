@@ -38,6 +38,8 @@ with tempfile.TemporaryDirectory() as tmp:
     if c6.exists():
         ok,info,error=parse(c6.read_bytes(),revision=65535,chip=0x0d);assert ok,error;assert info.project==b'network_adapter' and info.version==b'2.13.1' and info.hash
     good=image(); assert parse(good)[0]
+    rom=bytearray(good);struct.pack_into('<I',rom,4,0x4fc00000);rom[-32:]=hashlib.sha256(rom[:-32]).digest();assert parse(rom)[0]
+    struct.pack_into('<I',rom,4,0x4fc20000);rom[-32:]=hashlib.sha256(rom[:-32]).digest();assert not parse(rom)[0]
     assert parse(good)[1].project==b'TestApp'
     assert not parse(image(chip=0x10))[0] # H2 is NOT P4
     assert not parse(image(revision=200))[0]

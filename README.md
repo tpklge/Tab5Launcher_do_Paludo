@@ -19,20 +19,26 @@ Essas referências orientaram o desenvolvimento e os requisitos de interface. Es
 
 - HOME com aplicativos instalados, nomes/ícones personalizados, boot padrão e desinstalação com backup opcional.
 - Instalação pelo microSD, pendrive USB-A ou download OTA, com análise da imagem, verificação de integridade e progresso.
-- Alocação de flash por tamanho real, mapa gráfico e reorganização com backup e guarda de recuperação; até 16 aplicativos, quando houver espaço.
+- Alocação de flash por tamanho real, mapa gráfico e reorganização com backup opcional e guarda de recuperação; até 16 aplicativos, quando houver espaço.
 - Gerenciador de arquivos: microSD como **C:** e pendrive FAT/exFAT como **D:**, pastas, cópia, renomeação, edição limitada e exclusão recursiva com confirmação.
 - WebGUI com sessão por cookie, arrastar e soltar arquivos/pastas, progresso por arquivo, reenvio de falhas, criação de pastas e atualização da listagem. HTML/CSS/JS ficam no microSD.
 - Wi-Fi com redes salvas no cartão; temas, grade de 144 cores, wallpaper, relógios de descanso, data em português, teclado físico, brilho e configurações de energia.
 - Modo exclusivo de disco USB-C para acessar o microSD no computador. Exige reinício controlado e ejeção no computador; não funciona simultaneamente com o launcher.
 - Console USB, diagnósticos, perfis de dados de aplicativos e integração opcional Pi/Tab5Link. A integração Pi ainda precisa de validação física.
 
+Backup integral é opcional e fica desmarcado na instalação, reorganização e restauração, inclusive quando já existem apps. Sem backup, mudanças que movem apps usam uma cópia temporária apenas dos bytes ocupados, verificada por hash, mantida para retomada em caso de interrupção e removida ao concluir. O SD precisa permanecer inserido durante a operação.
+
+CFG oferece filtro de `.bin` e pastas, ocultando nomes iniciados por ponto nesse modo. A análise verifica o binário, SHA-256 e espaço antes de exibir o aceite; não há uma espera fixa para marcar a caixa.
+
+Validação desta revisão: compilação ESP32-P4, testes host com ASan/UBSan e limites de memória/pilha aprovados. Instalação limpa e lançamento do BasiliskII/macOS foram acompanhados pela serial. A causa da tela azul em descanso e o Meshtastic ainda exigem validação específica. Foram observados timeouts intermitentes no SD ao salvar credenciais Wi-Fi, embora leituras posteriores funcionassem.
+
 ## Sem NVS do launcher
 
 O launcher **não inicializa, lê, grava ou importa namespaces NVS**. Configuração, Wi-Fi, metadados, guarda de boot e registros de instalação/recuperação ficam em `/launcher` no microSD. O pedido temporário para entrar em USB disco usa um marcador RTC consumido uma única vez após reinício por software.
 
-O mapa padrão para instalações novas **não reserva `nvs`, `aurora_cfg`, `vfs` ou `spiffs`**. Aplicativos que precisarem de NVS devem fornecer/criar uma partição compatível e administrá-la. Uma chamada a `nvs_flash_init()` sozinha não cria uma entrada na tabela de partições: firmwares que pressupõem uma partição compartilhada preexistente podem precisar de adaptação. O launcher não instala automaticamente partições NVS arbitrárias de terceiros.
+O mapa padrão para instalações novas reserva uma partição `nvs` convencional em `0x9000` (24 KiB) para os aplicativos. O launcher continua usando somente o SD para sua própria persistência. `aurora_cfg`, `vfs` e `spiffs` não são pré-alocadas. O editor FLASH permite criar NVS, FAT, SPIFFS e LittleFS, com tamanho e offset opcional. Imagens completas podem fornecer dados para destinos compatíveis por nome, tipo e offset; bootloader e tabela de terceiros não são gravados. Um binário app-only não descreve suas partições externas.
 
-Partições de aplicativos já existentes não são apagadas por uma atualização apenas do binário do launcher. Backups de partições de dados existentes são cópias brutas, sem abrir namespaces NVS. Snapshots lógicos de NVS de versões anteriores não são convertidos automaticamente; recapture os dados antes de depender de um novo perfil. As credenciais/preferências que já estão no SD permanecem utilizáveis; não há mais importação de configurações antigas guardadas somente em NVS. Mantenha o cartão inserido para operações persistentes. No mapa limpo, a região sem partições após `0xa10000` não é somada à capacidade atual do alocador; ampliar esse banco exige validação adicional.
+Partições de aplicativos já existentes não são apagadas por uma atualização apenas do binário do launcher. Backups de partições de dados existentes são cópias brutas, sem abrir namespaces NVS. Snapshots lógicos de NVS de versões anteriores não são convertidos automaticamente; recapture os dados antes de depender de um novo perfil. As credenciais/preferências que já estão no SD permanecem utilizáveis; não há mais importação de configurações antigas guardadas somente em NVS. Mantenha o cartão inserido para operações persistentes. O banco de aplicativos usa o espaço contíguo até a primeira partição de dados, preservando o coredump ao final da flash. Espaços livres adicionais podem receber partições de dados pelo editor.
 
 ## Compilar e testar
 
@@ -66,7 +72,7 @@ O empacotador gera arquivos em `dist/`, com offsets, tamanhos e hashes em `manif
 - **Atualização de um launcher existente:** o binário do app só pode ser gravado no offset e na reserva do launcher conferidos na tabela instalada. **Não grave a tabela de `build/` nem use `idf.py flash` sobre um aparelho com mapa dinâmico existente.**
 - Se o novo launcher não couber, use [tools/prepare_dynamic_upgrade.py](tools/prepare_dynamic_upgrade.py) com um backup integral recente e confira o plano. A ferramenta prepara os arquivos; não grava o aparelho.
 
-Uma atualização apenas do app não remove entradas NVS legadas da tabela instalada. A ausência dessas reservas se aplica ao novo mapa padrão. Não faça atualização com instalação, restauração ou troca de perfil pendente.
+Uma atualização apenas do app não remove entradas NVS legadas da tabela instalada. A NVS convencional do novo mapa só é criada em instalações limpas ou pelo editor de partições. Não faça atualização com instalação, restauração ou troca de perfil pendente.
 
 ## Estado de validação
 

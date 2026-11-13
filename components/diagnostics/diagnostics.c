@@ -19,6 +19,22 @@
 #include <string.h>
 
 static const char *TAG = "diagnostics";
+#ifdef ESP_PLATFORM
+#include "esp_timer.h"
+static RTC_NOINIT_ATTR struct {
+  uint32_t magic, idle_seconds, stage, internal, largest, stack;
+} s_idle;
+#endif
+void diagnostics_idle_checkpoint(uint32_t idle_seconds, unsigned stage) {
+#ifdef ESP_PLATFORM
+  s_idle.idle_seconds = idle_seconds;
+  s_idle.stage = stage;
+  s_idle.internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  s_idle.largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  s_idle.stack = uxTaskGetStackHighWaterMark(NULL);
+  s_idle.magic = 0x49444c45;
+#endif
+}
 
 #define LOG_LINES 64
 #define LOG_LINE_LEN 128
@@ -43,6 +59,17 @@ void diagnostics_early_init(void) {
   s_lock = xSemaphoreCreateMutex();
   if (s_lock)
     s_previous = esp_log_set_vprintf(capture);
+#ifdef ESP_PLATFORM
+  esp_reset_reason_t reason = esp_reset_reason();
+  if (s_idle.magic == 0x49444c45 && s_idle.stage &&
+      (reason == ESP_RST_PANIC || reason == ESP_RST_TASK_WDT ||
+       reason == ESP_RST_INT_WDT || reason == ESP_RST_WDT))
+    ESP_LOGE(TAG, "Reset durante descanso: idle=%lu s stage=%lu internal=%lu largest=%lu LVGL stack=%lu",
+      (unsigned long)s_idle.idle_seconds, (unsigned long)s_idle.stage,
+      (unsigned long)s_idle.internal, (unsigned long)s_idle.largest,
+      (unsigned long)s_idle.stack);
+  s_idle.magic = 0;
+#endif
   ESP_LOGI(TAG, "reset reason: %d, idf: %s", (int)esp_reset_reason(),
            esp_get_idf_version());
 }

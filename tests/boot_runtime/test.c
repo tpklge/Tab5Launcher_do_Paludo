@@ -11,7 +11,7 @@ static launcher_config_t cfg;
 static int8_t pending=-1,stopped=-1,default_slot=0;
 static uint8_t failures,timeout=3;
 static int reason,wakeup;
-static bool valid_app=true,recovery_required;
+static bool valid_app=true,recovery_required,fail_launch_record;
 static bool recovery_check(void){return recovery_required;}
 static int cancelled_prepare;
 static int prepare_race(int slot){recovery_required=true;return ESP_OK;}
@@ -27,7 +27,7 @@ void board_shutdown(void) {}
 const char *esp_err_to_name(int e) { return "error"; }
 int launcher_state_open(const char *ns,int mode,launcher_state_handle_t *h) { *h=(launcher_state_handle_t)1; return 0; }
 void launcher_state_close(launcher_state_handle_t h) {}
-int launcher_state_commit(launcher_state_handle_t h) { return 0; }
+int launcher_state_commit(launcher_state_handle_t h) { return fail_launch_record?ESP_FAIL:ESP_OK; }
 int launcher_state_get_i8(launcher_state_handle_t h,const char *key,int8_t *v) { *v=!strcmp(key,"pending_slot")?pending:!strcmp(key,"stopped_slot")?stopped:default_slot; return 0; }
 int launcher_state_set_i8(launcher_state_handle_t h,const char *key,int8_t v) { if(!strcmp(key,"pending_slot")) pending=v; else if(!strcmp(key,"stopped_slot")) stopped=v; else default_slot=v; return 0; }
 int launcher_state_get_u8(launcher_state_handle_t h,const char *key,uint8_t *v) { *v=!strncmp(key,"fail_",5)?failures:timeout; return 0; }
@@ -52,6 +52,14 @@ int main(void)
  boot_mgr_set_recovery_check(recovery_check);
  recovery_required=true;assert(boot_mgr_launch_slot(0)==ESP_ERR_INVALID_STATE);recovery_required=false;
  reset_ram(ESP_RST_POWERON);boot_mgr_set_prepare(prepare_race);boot_mgr_set_cancel_prepare(cancel_prepare);assert(boot_mgr_launch_slot(0)==ESP_ERR_INVALID_STATE&&pending==-1&&cancelled_prepare==1);recovery_required=false;boot_mgr_set_prepare(NULL);boot_mgr_set_cancel_prepare(NULL);
+ reset_ram(ESP_RST_POWERON);
+ uint32_t layout_cap=LAYOUT_CAP_MAGIC;memcpy(request_bytes+LAYOUT_CAP_OFFSET,&layout_cap,4);
+ fail_launch_record=true;assert(boot_mgr_launch_slot(0)==ESP_FAIL);fail_launch_record=false;
+ assert(boot_mgr_return_supported());memcpy(&layout_cap,request_bytes+LAYOUT_CAP_OFFSET,4);assert(layout_cap==LAYOUT_CAP_MAGIC);
+ pending=-1;memset(request_bytes+LAYOUT_CAP_OFFSET,255,4);
+ fail_launch_record=true;assert(boot_mgr_launch_slot(0)==ESP_FAIL);fail_launch_record=false;
+ memcpy(&layout_cap,request_bytes+LAYOUT_CAP_OFFSET,4);assert(layout_cap==UINT32_MAX);
+ pending=-1;
  reset_ram(ESP_RST_POWERON); assert(!boot_mgr_guard_take(NULL)); assert(boot_mgr_autoboot_slot()==0);
  for(int i=1;i<=3;i++) { launch(); reset_ram(ESP_RST_PANIC); boot_mgr_guard_state_t state; bool guarded=boot_mgr_guard_take(&state); assert(failures==i && guarded==(i==3)); assert(boot_mgr_autoboot_slot()==-1); if(guarded) { assert(state.slot==0 && state.restarts==3); boot_mgr_mark_stopped(0); } }
  reset_ram(ESP_RST_POWERON); assert(boot_mgr_autoboot_slot()==-1);

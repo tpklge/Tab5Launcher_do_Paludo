@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 void diagnostics_early_init(void);
+void diagnostics_idle_checkpoint(uint32_t idle_seconds, unsigned stage);
 
 typedef struct {
     int   reset_reason;    /* esp_reset_reason_t */

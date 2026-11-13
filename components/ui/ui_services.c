@@ -1,5 +1,6 @@
 #include "flash_layout_info.h"
 #include "flash_snapshot.h"
+#include "storage_guard.h"
 #include "launcher_store.h"
 /* Worker-owned catalog model; only LVGL timer reads completed results. */
 #include "backup.h"
@@ -59,6 +60,7 @@ typedef struct {
   uint32_t sizes[16], minimum[16], factory, capacity;
   lv_obj_t *bar, *summary, *rows, *sliders[16], *values[16], *apply;
   bool ready, dirty;
+  lv_obj_t *backup;
 } layout_ui_t;
 static layout_ui_t *s_layout;
 static void layout_populate(const flash_allocation_t *);
@@ -75,6 +77,7 @@ typedef struct {
   char url[512];
   uint32_t sizes[16];
   unsigned slots;
+  bool backup;
   uint8_t table_sha[32];
 } job_t;
 typedef struct {
@@ -86,6 +89,22 @@ typedef struct {
 static bool progress(unsigned n, const char *stage, void *user) {
   atomic_store(&s_percent, n);
   return !atomic_load(&s_cancel);
+}
+typedef struct { job_t *job; result_t *result; } data_job_t;
+static esp_err_t create_data_job(void *arg) {
+  data_job_t *d = arg;
+  char label[16], type[16], extra;
+  unsigned kib = 0, address = 0;
+  int fields = sscanf(d->job->url, "%15[^,],%15[^,],%u,%x %c", label, type, &kib, &address, &extra);
+  if ((fields != 3 && fields != 4) || !kib || kib > 16192 || (kib & 3)) return ESP_ERR_INVALID_ARG;
+  unsigned subtype = !strcmp(type,"nvs") ? 2 : !strcmp(type,"fat") ? 0x81 :
+                     !strcmp(type,"spiffs") ? 0x82 : !strcmp(type,"littlefs") ? 0x83 : 0;
+  if (!subtype) return ESP_ERR_INVALID_ARG;
+  esp_err_t e = wifi_pause_wait(15000);
+  if (!e) e = flash_data_create(label, subtype, kib * 1024u, address,
+      d->job->backup, progress, NULL, d->result->message, sizeof(d->result->message));
+  if (e) wifi_resume();
+  return e;
 }
 static void worker(void *arg) {
   job_t job;
@@ -116,7 +135,7 @@ static void worker(void *arg) {
         if (!r.error)
           memcpy(s_layout_sha, allocation.digest, 32);
       } else if (job.kind == 12) {
-        r.error = installer_compact(job.table_sha, progress, NULL, r.message,
+        r.error = installer_compact_options(job.table_sha, job.backup, progress, NULL, r.message,
                                     sizeof(r.message));
         if (!r.error) {
           vTaskDelay(pdMS_TO_TICKS(400));
@@ -135,12 +154,18 @@ static void worker(void *arg) {
         if (!r.error)
           memcpy(s_layout_sha, r.layout.digest, 32);
       } else if (job.kind == 23) {
-        r.error = installer_layout_apply(job.sizes, job.table_sha, progress,
+        r.error = installer_layout_apply_options(job.sizes, job.table_sha, job.backup, progress,
                                          NULL, r.message, sizeof(r.message));
         if (!r.error) {
           vTaskDelay(pdMS_TO_TICKS(400));
           esp_restart();
         }
+      } else if (job.kind == 24) {
+        data_job_t data = {&job, &r};
+        r.error = installer_maintenance(create_data_job, &data);
+        if (!r.error && storage_prepare_reboot(5000)) esp_restart();
+        if (r.error && !r.message[0]) snprintf(r.message, sizeof(r.message),
+          "Use nome,tipo,KiB[,offset hexadecimal]. Tipos: nvs, fat, spiffs, littlefs.");
       } else if (job.kind == 13) {
         flash_snapshot_t snapshot;
         r.error = installer_full_backup(&snapshot, progress, NULL, r.message,
@@ -202,6 +227,7 @@ static bool submit(int kind, unsigned index, const char *url) {
   if (!s_jobs || atomic_exchange(&s_busy, true))
     return false;
   job_t job = {.kind = kind, .index = index};
+  job.backup = s_layout && s_layout->backup && lv_obj_has_state(s_layout->backup, LV_STATE_CHECKED);
   if (kind == 19)
     job.slots = index >> 16;
   if (kind == 19)
@@ -351,8 +377,8 @@ static void poll(lv_timer_t *t) {
         lv_obj_get_user_data(s_page) == (void *)3) {
       ui_confirm(
           "Reparticionar flash",
-          "Os apps serão copiados do backup para os novos slots.\nUm layout "
-          "sem espaço para todos é recusado.\nBackup integral e verificação "
+          "Os apps serão preservados nos novos slots.\nUm layout "
+          "sem espaço para todos é recusado.\nBackup integral opcional; verificação "
           "SHA-256 antes da alteração.\nOperações interrompidas podem ser "
           "retomadas em FLASH.\nNão remova o SD. O Tab5 reinicia ao concluir.",
           "Aplicar e reiniciar", layout_confirmed, NULL);
@@ -499,8 +525,9 @@ static void layout_render(void) {
       layout_segment(label, s_layout->sizes[i], palette[i % 6]);
     }
   layout_segment("Livre", free, 0x355B49);
-  uint32_t allocated = flash_layout_tail_allocated();
-  layout_segment("Sem particao", 0x5f0000 - allocated, 0x355B49);
+  uint32_t bank_end = 0x20000 + s_layout->factory + s_layout->capacity;
+  uint32_t allocated = flash_layout_allocated_after(bank_end);
+  layout_segment("Livre p/dados", 0x1000000 - bank_end - allocated, 0x355B49);
   layout_segment("Dados/sistema", allocated, 0x626976);
 }
 static void layout_changed(lv_event_t *e) {
@@ -518,7 +545,7 @@ static void layout_populate(const flash_allocation_t *a) {
   if (!s_layout || !a->launcher_size)
     return;
   s_layout->factory = a->launcher_size;
-  s_layout->capacity = 0xa10000 - 0x20000 - a->launcher_size;
+  s_layout->capacity = a->capacity;
   memcpy(s_layout->sizes, a->reserved, sizeof(s_layout->sizes));
   memcpy(s_layout->minimum, a->minimum, sizeof(s_layout->minimum));
   for (unsigned i = 0; i < 16; i++) {
@@ -557,6 +584,8 @@ static void layout_editor(lv_obj_t *p) {
       l,
       "Arraste as reservas em passos de 64 KiB. Apps existentes e dados sao "
       "preservados. A instalacao automatica pode reorganizar essas reservas.");
+  s_layout->backup = lv_checkbox_create(p);
+  lv_checkbox_set_text(s_layout->backup, "Salvar backup integral antes de alterar (opcional)");
   s_layout->bar = lv_obj_create(p);
   lv_obj_set_size(s_layout->bar, LV_PCT(100), 54);
   lv_obj_set_style_pad_all(s_layout->bar, 0, 0);
@@ -600,7 +629,7 @@ static void layout_editor(lv_obj_t *p) {
   lv_obj_set_style_text_font(l, &lv_font_montserrat_14, 0);
   lv_label_set_text(l, "Configuracoes: C:/launcher/config.json. aurora_cfg e "
                        "uma particao legada de compatibilidade, nao usada pelo "
-                       "launcher. Backup integral antes de alterar o mapa.");
+                       "launcher. Backup integral opcional; copia temporaria durante migracao.");
   if (!ui_services_busy())
     submit(21, 0, NULL);
 }
@@ -611,6 +640,14 @@ static lv_obj_t *flash_tool(lv_obj_t *p, const char *caption, lv_event_cb_t cb,
   lv_obj_t *l = lv_obj_get_child(b, 0);
   lv_obj_set_style_text_font(l, &lv_font_montserrat_18, 0);
   return b;
+}
+static bool data_form_save(const char *text, void *u) {
+  return submit(24, 0, text);
+}
+static void data_create_open(lv_event_t *e) {
+  if (ui_services_busy()) return;
+  ui_form_open("Criar: nome,tipo,KiB[,offset hex] (nvs/fat/spiffs/littlefs)",
+               "nvs,nvs,24", false, 95, data_form_save, NULL);
 }
 static void restore_open(lv_event_t *e) {
   ui_sd_open_directory(LAUNCHER_BACKUPS);
@@ -711,7 +748,7 @@ static lv_obj_t *create(lv_obj_t *parent, unsigned mode) {
     lv_label_set_text(s_status,
                       "Backup manual integral dos slots OTA com SHA-256 e "
                       "manifesto.\nRestauracao: selecione .raw no SD. "
-                      "Editor altera apenas o banco de aplicativos.");
+                      "Editor de apps e criacao de particoes de dados.");
     lv_obj_t *body = lv_obj_create(s_page);
     lv_obj_set_width(body, LV_PCT(100));
     lv_obj_set_flex_grow(body, 1);
@@ -735,6 +772,7 @@ static lv_obj_t *create(lv_obj_t *parent, unsigned mode) {
     if (s_layout)
       s_layout->apply = apply;
     flash_tool(actions, LV_SYMBOL_REFRESH " Auto", layout_plan_cb, NULL);
+    flash_tool(actions, "+ Dados", data_create_open, NULL);
     flash_tool(actions, LV_SYMBOL_SAVE " Bkp.", service_action, (void *)13);
     flash_tool(actions, LV_SYMBOL_UPLOAD " Rest.", restore_open, NULL);
     if (flash_operation_pending())

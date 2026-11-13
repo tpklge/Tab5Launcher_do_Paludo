@@ -14,6 +14,7 @@ bool sd_path_valid(const char *path);
 bool sd_name_valid(const char *name);
 bool sd_path_join(char *out,size_t size,const char *dir,const char *name);
 int sd_files_list(const char *path,unsigned page,sd_listing_t *list);
+int sd_files_list_bins(const char *path,unsigned page,sd_listing_t *list);
 int sd_files_mkdir(const char *dir,const char *name);
 int sd_files_rename(const char *path,const char *name);
 int sd_files_delete(const char *path);

@@ -12,6 +12,7 @@
 #include "input.h"
 #include "installer.h"
 #include "sd_files.h"
+#include "storage.h"
 #include "ui.h"
 #ifdef ESP_PLATFORM
 #include "esp_attr.h"
@@ -68,6 +69,7 @@ typedef struct {
 } progress_t;
 static QueueHandle_t s_jobs, s_results, s_progress;
 static TaskHandle_t s_worker;
+static bool s_restore_backup;
 static atomic_bool s_busy, s_cancel;
 static atomic_int s_operation;
 static unsigned s_generation, s_page_index;
@@ -180,7 +182,11 @@ static void worker(void *unused) {
       board_sd_mount();
     switch (request->type) {
     case JOB_LIST:
-      r->error = sd_files_list(request->path, request->page, &r->listing);
+      launcher_config_t config;
+      storage_snapshot(&config);
+      r->error = config.only_bins
+          ? sd_files_list_bins(request->path, request->page, &r->listing)
+          : sd_files_list(request->path, request->page, &r->listing);
       break;
     case JOB_MKDIR:
       r->error = sd_files_mkdir(request->path, request->name);
@@ -217,7 +223,7 @@ static void worker(void *unused) {
                      : ESP_ERR_NO_MEM;
       break;
     case JOB_FULL_RESTORE:
-      r->error = installer_full_restore(s_full_snapshot, progress,
+      r->error = installer_full_restore_options(s_full_snapshot, request->plan.backup_before_changes, progress,
                                         (void *)(uintptr_t)request->generation,
                                         r->message, sizeof(r->message));
       if (!r->error)
@@ -302,12 +308,18 @@ static bool submit(job_t type, const char *path, const char *name,
   }
   if (type == JOB_INSTALL)
     request->plan = s_plan;
+  if (type == JOB_FULL_RESTORE)
+    request->plan.backup_before_changes = s_restore_backup;
   bool queued = xQueueSend(s_jobs, &request, 0) == pdTRUE;
   if (!queued)
     free(request);
   if (!queued) {
     atomic_store(&s_busy, false);
     return false;
+  }
+  if (type == JOB_ANALYZE || type == JOB_FULL_PLAN) {
+    ui_progress_open("Analisando firmware", NULL, NULL);
+    ui_progress_update(0, "Validando binario, SHA-256 e espaco. O aceite aparece ao concluir.");
   }
   if (s_status)
     lv_label_set_text(s_status, type == JOB_INSTALL
@@ -580,6 +592,12 @@ static void cancel_plan(lv_event_t *e) {
   close_modal();
   submit(JOB_CANCEL_PENDING, s_plan.path, NULL, NULL);
 }
+static void restore_backup_changed(lv_event_t *e) {
+  s_restore_backup = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+}
+static void backup_changed(lv_event_t *e) {
+  s_plan.backup_before_changes = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+}
 static void show_plan(void) {
   lv_obj_t *panel = modal_panel("PLANO DE INSTALACAO", 590);
   char size[32], capacity[32];
@@ -610,7 +628,7 @@ static void show_plan(void) {
        i++) {
     const firmware_region_t *r = &s_plan.firmware.data[i];
     int n = snprintf(details + used, sizeof(details) - used,
-                     "\nDados: %s (%lu bytes); backup integral antes de apagar",
+                     "\nDados: %s (%lu bytes); backup opcional antes de apagar",
                      r->label, (unsigned long)r->length);
     if (n < 0 || n >= (int)sizeof(details) - used)
       break;
@@ -620,18 +638,18 @@ static void show_plan(void) {
   const char *warning =
       s_plan.needs_layout
           ? "ALOCACAO AUTOMATICA: apps existentes serao preservados.\nBackup "
-            "integral antes da compactacao; reinicia e reabre a\ncopia do "
+            "opcional; usa copia temporaria dos apps. Reinicia e reabre a\ncopia do "
             "instalador no diretorio /launcher/incoming."
       : s_plan.firmware.data_count
-          ? "Os dados listados serao substituidos apos backup "
-            "verificado.\nLauncher, NVS e aurora_cfg permanecem preservados."
+          ? "Os dados listados serao substituidos. Backup opcional "
+            "antes da gravacao.\nSomente as particoes listadas serao substituidas."
           : "Somente app: dados externos serao preservados.\nO .bin nao "
             "informa todos os dados/drivers/offsets exigidos.\nConfira a "
             "compatibilidade do firmware com o Tab5.";
   lv_obj_t *warning_label = text(panel, warning, 0, 274, 0xFF5967);
   lv_obj_set_width(warning_label, 790);
   s_accept = lv_checkbox_create(panel);
-  lv_obj_set_pos(s_accept, 0, 370);
+  lv_obj_set_pos(s_accept, 0, 340);
   lv_obj_set_width(s_accept, 790);
   lv_obj_set_style_text_color(s_accept, lv_color_hex(0xDCE2EB), 0);
   lv_checkbox_set_text(
@@ -639,18 +657,23 @@ static void show_plan(void) {
       s_plan.needs_layout ? "Aceito compactar preservando os apps e preparar "
                             "espaco para este app."
       : s_plan.slot < 0
-          ? "Aceito restaurar somente os dados listados, com backup previo."
+          ? "Aceito restaurar somente os dados listados, backup opcional."
       : s_plan.firmware.data_count
-          ? "Aceito gravar o app e os dados listados, com backup previo."
+          ? "Aceito gravar o app e os dados listados, backup opcional."
           : "Instalar somente o app; aceito os requisitos de dados "
             "desconhecidos.");
   lv_obj_add_event_cb(s_accept, accept_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_obj_t *backup_check = lv_checkbox_create(panel);
+  lv_obj_set_pos(backup_check, 0, 395);
+  lv_checkbox_set_text(backup_check, "Salvar backup antes de alterar a flash (opcional)");
+  if (s_plan.backup_before_changes) lv_obj_add_state(backup_check, LV_STATE_CHECKED);
+  lv_obj_add_event_cb(backup_check, backup_changed, LV_EVENT_VALUE_CHANGED, NULL);
   s_modal_hint =
       text(panel,
            boot_mgr_return_supported()
                ? "RESET retorna ao launcher apos um boot do app."
                : "Bootloader de retorno nao detectado. Instalacao bloqueada.",
-           0, 430, 0x9CA6B5);
+           0, 454, 0x9CA6B5);
   lv_obj_t *cancel = button(panel, "Cancelar", 160, 48, cancel_plan);
   lv_obj_align(cancel, LV_ALIGN_BOTTOM_LEFT, 0, 0);
   s_install = button(panel, "Instalar app", 220, 48, install_confirm);
@@ -760,7 +783,8 @@ static void poll(lv_timer_t *timer) {
   result_t *r;
   while (xQueueReceive(s_results, &r, 0) == pdTRUE) {
     if (r->generation == s_generation) {
-      if (r->type == JOB_INSTALL || r->type == JOB_COPY)
+      if (r->type == JOB_INSTALL || r->type == JOB_COPY ||
+          r->type == JOB_ANALYZE || r->type == JOB_FULL_PLAN)
         ui_progress_close();
       if (r->error)
         lv_label_set_text(s_status, r->message);
@@ -810,11 +834,19 @@ static void poll(lv_timer_t *timer) {
               "Backup: %.128s\nSHA-256: "
               "%02x%02x%02x%02x%02x%02x%02x%02x...\nApps, dados e tabela "
               "voltarão ao estado desse backup.\nBootloader/launcher "
-              "compatíveis. Backup atual antes de gravar.\nNão remova o SD.",
+              "compatíveis. Backup do estado atual é opcional.\nNão remova o SD.",
               s_full_snapshot->path, sha[0], sha[1], sha[2], sha[3], sha[4],
               sha[5], sha[6], sha[7]);
           ui_confirm("Restaurar backup integral", message, "Restaurar",
                      full_confirmed, NULL);
+          s_restore_backup = false;
+          lv_obj_t *panel = ui_form_panel();
+          lv_obj_set_height(panel, 450);
+          lv_obj_t *backup = lv_checkbox_create(panel);
+          lv_obj_set_pos(backup, 0, 285);
+          lv_checkbox_set_text(backup, "Salvar backup do estado atual (opcional)");
+          lv_obj_add_event_cb(backup, restore_backup_changed, LV_EVENT_VALUE_CHANGED, NULL);
+          ui_nav_refresh();
           break;
         }
         case JOB_ANALYZE:

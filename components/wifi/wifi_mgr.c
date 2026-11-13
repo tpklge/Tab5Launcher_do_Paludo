@@ -79,7 +79,7 @@ static wifi_saved_network_t s_active_network;
 static bool s_reconnect_allowed;
 static unsigned s_retry_count;
 static int64_t s_retry_at;
-static atomic_bool s_paused,s_pause_waiting;
+static atomic_bool s_paused,s_pause_waiting,s_pause_requested;
 static atomic_uint s_pause_issued,s_pause_completed;
 static atomic_int s_pause_result;
 
@@ -302,10 +302,18 @@ idle:
             continue;
         }
 
+        if (atomic_load(&s_pause_requested) && cmd.type != CMD_PAUSE) {
+            if (cmd.type == CMD_CONNECT && cmd.conn_cb)
+                cmd.conn_cb(WIFI_RESULT_ERR_TRANSPORT, "Wi-Fi pausado", cmd.user);
+            if (cmd.type == CMD_SCAN && cmd.scan_cb)
+                cmd.scan_cb(ESP_ERR_INVALID_STATE, NULL, 0, cmd.user);
+            continue;
+        }
         switch (cmd.type) {
         case CMD_START: {
             wifi_status_t current;wifi_get_status(&current);
             if(current.state==WIFI_STATE_DISABLED) {
+                wifi_link_cancel(false);
                 atomic_store(&s_paused,false);
                 esp_err_t resumed=esp_wifi_start();
                 set_state(resumed==ESP_OK?WIFI_STATE_READY:WIFI_STATE_FAILED);
@@ -323,6 +331,10 @@ idle:
             cmd.auth = s_active_network.auth;
             /* fall through */
         case CMD_CONNECT: {
+            if (atomic_load(&s_paused)) {
+                if (cmd.conn_cb) cmd.conn_cb(WIFI_RESULT_ERR_TRANSPORT, "Wi-Fi pausado", cmd.user);
+                break;
+            }
             s_reconnect_allowed = false;
             wifi_status_t current;
             wifi_get_status(&current);
@@ -404,6 +416,12 @@ idle:
             break;
         }
         case CMD_PAUSE: {
+            if (s_pending_scan_cb) {
+                wifi_scan_cb_t cb = s_pending_scan_cb;
+                void *user = s_pending_scan_user;
+                s_pending_scan_cb = NULL; s_pending_scan_user = NULL;
+                cb(ESP_ERR_INVALID_STATE, NULL, 0, user);
+            }
             s_reconnect_allowed = false;
             atomic_store(&s_paused,true);
             wifi_status_t current;wifi_get_status(&current);
@@ -507,6 +525,8 @@ void wifi_init(bool autoconnect)
 
 void wifi_pause(void)
 {
+    atomic_store(&s_pause_requested,true);
+    wifi_link_cancel(true);
     wifi_cmd_t cmd = { .type = CMD_PAUSE };
     if (s_cmd_q) xQueueSend(s_cmd_q, &cmd, pdMS_TO_TICKS(400));
 }
@@ -514,16 +534,20 @@ void wifi_pause(void)
 esp_err_t wifi_pause_wait(uint32_t timeout_ms){
  if(!s_initialized)return ESP_OK;
  if(!s_cmd_q||atomic_exchange(&s_pause_waiting,true))return ESP_ERR_INVALID_STATE;
+ atomic_store(&s_pause_requested,true);
+ wifi_link_cancel(true);
  unsigned id=atomic_fetch_add(&s_pause_issued,1)+1;
  wifi_cmd_t cmd={.type=CMD_PAUSE,.pause_id=id};
  esp_err_t result=ESP_ERR_TIMEOUT;
- if(xQueueSend(s_cmd_q,&cmd,pdMS_TO_TICKS(400))!=pdTRUE)result=ESP_ERR_INVALID_STATE;
+ if(xQueueSendToFront(s_cmd_q,&cmd,pdMS_TO_TICKS(400))!=pdTRUE)result=ESP_ERR_INVALID_STATE;
  else {int64_t deadline=esp_timer_get_time()+(int64_t)timeout_ms*1000;while(esp_timer_get_time()<deadline){if(atomic_load(&s_pause_completed)==id){result=atomic_load(&s_pause_result);break;}vTaskDelay(pdMS_TO_TICKS(25));}}
  atomic_store(&s_pause_waiting,false);return result;
 }
 
 void wifi_resume(void)
 {
+    atomic_store(&s_pause_requested,false);
+    wifi_link_cancel(false);
     wifi_cmd_t cmd = { .type = CMD_START };
     if (s_cmd_q) xQueueSend(s_cmd_q, &cmd, 0);
 }

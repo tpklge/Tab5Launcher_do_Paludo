@@ -229,9 +229,10 @@ esp_err_t boot_mgr_launch_slot(int slot) {
   /* Verify the image before switching otadata */
   esp_partition_pos_t part_pos = {.offset = part->address, .size = part->size};
   esp_image_metadata_t meta;
-  if (esp_image_verify(ESP_IMAGE_VERIFY, &part_pos, &meta) != ESP_OK) {
-    ESP_LOGE(TAG, "slot %d image verification failed", slot);
-    return ESP_FAIL;
+  esp_err_t verified = esp_image_verify(ESP_IMAGE_VERIFY, &part_pos, &meta);
+  if (verified != ESP_OK) {
+    ESP_LOGE(TAG, "slot %d image verification failed: %s", slot, esp_err_to_name(verified));
+    return verified;
   }
 
   if (!boot_mgr_return_supported())
@@ -255,7 +256,18 @@ esp_err_t boot_mgr_launch_slot(int slot) {
                            .address = part->address,
                            .size = part->size};
   record.crc = boot_request_crc(&record);
-  esp_err_t err = esp_partition_erase_range(request, 0, request->size);
+  uint32_t layout_cap = 0;
+  esp_err_t err = esp_partition_read(request, LAYOUT_CAP_OFFSET, &layout_cap, sizeof(layout_cap));
+  if (err == ESP_OK)
+    err = esp_partition_erase_range(request, 0, request->size);
+  if (err == ESP_OK) {
+    uint32_t cap = BOOT_CAP_MAGIC;
+    err = esp_partition_write(request, BOOT_CAP_OFFSET, &cap, sizeof(cap));
+  }
+  if (err == ESP_OK && layout_cap == LAYOUT_CAP_MAGIC) {
+    uint32_t cap = LAYOUT_CAP_MAGIC;
+    err = esp_partition_write(request, LAYOUT_CAP_OFFSET, &cap, sizeof(cap));
+  }
   if (err == ESP_OK)
     err = esp_partition_write(request, 0, &record, sizeof(record));
   if (err != ESP_OK) {

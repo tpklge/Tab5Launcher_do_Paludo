@@ -79,9 +79,22 @@ int main(void) {
     strcpy(s_plan.target,"app0"); strcpy(s_plan.firmware.image.project,"Test App"); strcpy(s_plan.firmware.image.version,"1.0");
     s_plan.address=0x210000; s_plan.size=0x800000; s_plan.firmware.image.image_size=5500000;
     show_plan(); assert(lv_obj_has_state(s_install,LV_STATE_DISABLED));
+    assert(!s_plan.backup_before_changes);
+    lv_obj_t *plan_panel=lv_obj_get_parent(s_accept),*backup_check=NULL;
+    for(unsigned k=0;k<lv_obj_get_child_count(plan_panel);k++) {
+      lv_obj_t *o=lv_obj_get_child(plan_panel,k);
+      if(o!=s_accept&&lv_obj_check_type(o,&lv_checkbox_class)) backup_check=o;
+    }
+    assert(backup_check&&!lv_obj_has_state(backup_check,LV_STATE_CHECKED));
+    ui_nav_refresh();lv_obj_update_layout(plan_panel);
+    lv_area_t consent_area,backup_area,hint_area;
+    lv_obj_get_coords(s_accept,&consent_area);lv_obj_get_coords(backup_check,&backup_area);lv_obj_get_coords(s_modal_hint,&hint_area);
+    assert(consent_area.y2<backup_area.y1 && backup_area.y2<hint_area.y1);
+    lv_obj_add_state(backup_check,LV_STATE_CHECKED);lv_obj_send_event(backup_check,LV_EVENT_VALUE_CHANGED,NULL);
+    assert(s_plan.backup_before_changes);
     ui_nav_refresh(); ui_nav_focus(s_accept); ui_nav_send_key(LV_KEY_ENTER);
     assert(!lv_obj_has_state(s_install,LV_STATE_DISABLED)); shot("sd-install-plan.ppm");
-    ui_nav_focus(s_install); assert(ui_nav_focused()==s_install); ui_nav_send_key(LV_KEY_ENTER); req=take_request(); assert(req.type==JOB_INSTALL && !s_modal);
+    ui_nav_focus(s_install); assert(ui_nav_focused()==s_install); ui_nav_send_key(LV_KEY_ENTER); req=take_request(); assert(req.type==JOB_INSTALL && !s_modal && req.plan.backup_before_changes);
     /* The launch must not enter the SD queue or mark itself busy. */
     s_plan.slot=1;launch_cb(NULL);assert(launched_slot==1&&!atomic_load(&s_busy)&&s_jobs->count==0&&pending_launch_callback);
     pending_launch_callback(ESP_ERR_TIMEOUT,NULL);assert(ui_nav_has_modal());ui_form_close();
@@ -95,3 +108,7 @@ int main(void) {
     puts("SD UI: list geometry, file/folder selection, physical entry, explicit destructive confirmation, install consent, stale replies and 100 lifecycle cycles passed (ASan/UBSan).");
 }
 void ui_navigate(ui_view_t view){}
+
+void storage_snapshot(launcher_config_t *c){memset(c,0,sizeof(*c));}
+
+esp_err_t installer_full_restore_options(const flash_snapshot_t*s,bool b,installer_progress_fn cb,void*u,char*m,size_t n){return ESP_FAIL;}

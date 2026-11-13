@@ -3,7 +3,8 @@
 #include <stdint.h>
 /* The current allocator protects the tail. Describe its real partitions,
  * instead of presenting every protected/unallocated byte as app data. */
-static inline uint32_t flash_layout_tail_allocated(void) {
+static inline uint32_t flash_layout_allocated_after(uint32_t boundary) {
+  if (boundary >= 0x1000000) return 0;
   uint32_t used = 0;
   for (esp_partition_iterator_t it = esp_partition_find(
            ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, NULL);
@@ -12,12 +13,16 @@ static inline uint32_t flash_layout_tail_allocated(void) {
     if (!p || p->address >= 0x1000000 || p->size > 0x1000000 - p->address)
       continue;
     uint32_t end = p->address + p->size;
-    if (end > 0xa10000) {
-      uint32_t start = p->address < 0xa10000 ? 0xa10000 : p->address;
+    if (end > boundary) {
+      uint32_t start = p->address < boundary ? boundary : p->address;
       uint32_t bytes = end - start;
-      if (bytes <= 0x5f0000 - used)
+      if (bytes <= 0x1000000 - boundary - used)
         used += bytes;
     }
   }
   return used;
+}
+
+static inline uint32_t flash_layout_tail_allocated(void) {
+  return flash_layout_allocated_after(0xa10000);
 }

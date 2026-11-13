@@ -40,6 +40,18 @@ with tempfile.TemporaryDirectory() as tmp:
         if page==0: assert all(listing.entries[i].directory for i in range(2))
     assert len(names)==len(set(names))==52
     assert names==['folder A','folder B']+[f'file-{i:02d}.txt' for i in range(50)]
+    (root/'.hidden.bin').write_bytes(b'hidden')
+    (root/'.hidden-folder').mkdir()
+    for i in range(30): (root/f'visible-{i:02d}.BIN').write_bytes(b'app')
+    selected=[]
+    for page in range(2):
+        listing=Listing()
+        assert lib.sd_files_list_bins(b(root),page,C.byref(listing))==0
+        assert listing.total==32
+        selected.extend(e.name.decode() for e in listing.entries[:listing.count])
+    assert selected==['folder A','folder B']+[f'visible-{i:02d}.BIN' for i in range(30)]
+    for p in root.glob('visible-*.BIN'): p.unlink()
+    (root/'.hidden.bin').unlink(); (root/'.hidden-folder').rmdir()
     assert lib.sd_files_mkdir(b(root),b'new folder')==0
     source=root/'copy source.bin'; data=bytes(range(256))*8192; source.write_bytes(data)
     dest=root/'new folder'

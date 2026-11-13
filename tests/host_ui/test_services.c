@@ -63,13 +63,14 @@ int main(void){
  for(unsigned i=0;i<100;i++){p=create(lv_screen_active(),i%4);assert(p);poll(NULL);lv_obj_delete(p);assert(!s_page);}
  while(xQueueReceive(s_jobs,&job,0)){}atomic_store(&s_busy,false);
  p=ui_partitions_create(lv_screen_active());assert(p&&s_layout&&xQueueReceive(s_jobs,&job,0)&&job.kind==21);
- r=(result_t){.kind=21,.layout={.launcher_size=0x1f0000,.reserved={0x100000,0x200000},.minimum={0x100000}}};xQueueSend(s_results,&r,0);poll(NULL);
+ r=(result_t){.kind=21,.layout={.launcher_size=0x1f0000,.capacity=0x800000,.reserved={0x100000,0x200000},.minimum={0x100000}}};xQueueSend(s_results,&r,0);poll(NULL);
  lv_obj_update_layout(p);for(unsigned k=0;k<4;k++){lv_area_t row,label;lv_obj_get_coords(lv_obj_get_parent(s_layout->values[k]),&row);lv_obj_get_coords(s_layout->values[k],&label);assert(label.x1>=row.x1 && label.x2<=row.x2);}
  assert(s_layout->ready&&lv_obj_get_child_count(s_layout->bar)==6&&!lv_obj_has_state(s_layout->apply,LV_STATE_DISABLED));
- assert(!strcmp(lv_label_get_text(lv_obj_get_child(lv_obj_get_child(s_layout->bar,-1),0)),"Sem particao"));
+ assert(!strcmp(lv_label_get_text(lv_obj_get_child(lv_obj_get_child(s_layout->bar,-1),0)),"Livre p/dados"));
  lv_slider_set_value(s_layout->sliders[1],48,LV_ANIM_OFF);lv_obj_send_event(s_layout->sliders[1],LV_EVENT_VALUE_CHANGED,NULL);assert(s_layout->sizes[1]==0x300000&&s_layout->dirty);poll(NULL);assert(!s_layout->dirty && !strcmp(lv_label_get_text(s_layout->values[1]),"3.00 MiB"));
  lv_slider_set_value(s_layout->sliders[0],0,LV_ANIM_OFF);assert(lv_slider_get_value(s_layout->sliders[0])==16);
- manual_plan(NULL);assert(xQueueReceive(s_jobs,&job,0)&&job.kind==22&&job.sizes[1]==0x300000);
+ assert(!lv_obj_has_state(s_layout->backup,LV_STATE_CHECKED));lv_obj_add_state(s_layout->backup,LV_STATE_CHECKED);
+ manual_plan(NULL);assert(xQueueReceive(s_jobs,&job,0)&&job.kind==22&&job.sizes[1]==0x300000&&job.backup);
  r=(result_t){.kind=22};strcpy(r.message,"Mapa verificado");xQueueSend(s_results,&r,0);poll(NULL);assert(ui_form_panel());ui_nav_send_key(LV_KEY_ESC);assert(!ui_nav_has_modal());
  lv_obj_delete(p);assert(!s_layout);
  p=ui_web_create(lv_screen_active());running=true;poll(NULL);assert(strstr(lv_label_get_text(s_status),"192.168.1.9"));lv_obj_delete(p);
@@ -77,8 +78,16 @@ int main(void){
 }
 
 esp_err_t catalog_fetch_sources(catalog_list_t*l,char (*o)[512],bool r,char*m,size_t n,catalog_progress_fn cb,void*u){return 0;}
-esp_err_t flash_allocate_plan(uint32_t r,flash_allocation_t*a,char*m,size_t n){memset(a,0,sizeof(*a));a->launcher_size=0x1f0000;a->free_bytes=0x800000;return 0;}
+esp_err_t flash_allocate_plan(uint32_t r,flash_allocation_t*a,char*m,size_t n){memset(a,0,sizeof(*a));a->launcher_size=0x1f0000;a->capacity=0x800000;a->free_bytes=0x800000;return 0;}
 esp_err_t installer_compact(const uint8_t*h,installer_progress_fn cb,void*u,char*m,size_t n){return 0;}
 
 esp_err_t flash_layout_plan(const uint32_t*s,flash_allocation_t*a,char*m,size_t n){return flash_allocate_plan(0,a,m,n);}
 esp_err_t installer_layout_apply(const uint32_t*s,const uint8_t*h,installer_progress_fn cb,void*u,char*m,size_t n){return 0;}
+
+esp_err_t installer_compact_options(const uint8_t*h,bool b,installer_progress_fn cb,void*u,char*m,size_t n){return 0;}
+esp_err_t installer_layout_apply_options(const uint32_t*s,const uint8_t*h,bool b,installer_progress_fn cb,void*u,char*m,size_t n){return 0;}
+esp_err_t installer_maintenance(esp_err_t(*fn)(void*),void*u){return fn(u);}
+esp_err_t wifi_pause_wait(uint32_t n){return 0;}
+void wifi_resume(void){}
+bool storage_prepare_reboot(uint32_t n){return true;}
+esp_err_t flash_data_create(const char*l,uint8_t t,uint32_t s,uint32_t a,bool b,partition_progress_fn cb,void*u,char*m,size_t n){return 0;}

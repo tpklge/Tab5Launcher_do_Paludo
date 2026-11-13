@@ -6,6 +6,7 @@ typedef struct {
   uint32_t address, size;
   int slot;
   bool replaces_app;
+  bool backup_before_changes;
   uint8_t target_sha256[32];
   firmware_info_t firmware;
   bool needs_layout;
@@ -65,3 +66,8 @@ esp_err_t installer_uninstall_options(int,const uint8_t[32],bool backup_binary,u
 esp_err_t installer_compact(const uint8_t[32],installer_progress_fn,void*,char*,size_t);
 
 esp_err_t installer_layout_apply(const uint32_t sizes[16],const uint8_t digest[32],installer_progress_fn,void*,char*,size_t);
+
+esp_err_t installer_compact_options(const uint8_t[32],bool,installer_progress_fn,void*,char*,size_t);
+esp_err_t installer_layout_apply_options(const uint32_t[16],const uint8_t[32],bool,installer_progress_fn,void*,char*,size_t);
+
+esp_err_t installer_full_restore_options(const flash_snapshot_t*,bool,installer_progress_fn,void*,char*,size_t);

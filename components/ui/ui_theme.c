@@ -71,6 +71,12 @@ void ui_theme_tree(lv_obj_t *o) {
       lv_obj_set_style_bg_color(o, lv_color_hex(s_accent), LV_PART_INDICATOR);
       lv_obj_set_style_arc_color(o, lv_color_hex(s_accent), LV_PART_INDICATOR);
     }
+    if (lv_obj_check_type(o, &lv_checkbox_class)) {
+      lv_obj_set_style_pad_all(o, 8, 0);
+      lv_obj_set_style_pad_column(o, 14, 0);
+      lv_obj_set_style_pad_all(o, 7, LV_PART_INDICATOR);
+      lv_obj_set_ext_click_area(o, 8);
+    }
     if (lv_obj_check_type(o, &lv_switch_class)) {
       lv_obj_set_style_bg_color(o, lv_color_hex(p->border), LV_PART_MAIN);
       lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN);

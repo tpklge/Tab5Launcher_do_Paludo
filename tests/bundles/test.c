@@ -13,7 +13,8 @@ static void check(const char *name,bool wanted,firmware_kind_t kind,unsigned dat
 }
 int main(void)
 {
- check("app.bin",true,FW_APP_ONLY,0); check("merged.bin",true,FW_MERGED,1);
+ check("app.bin",true,FW_APP_ONLY,0); check("merged.bin",true,FW_MERGED,2);
+ check("merged-e9.bin",true,FW_MERGED,2); check("padded.bin",true,FW_APP_ONLY,0);
  check("package.json",true,FW_PACKAGE,1); check("backup.raw",true,FW_RAW_BACKUP,0);
  check("data.raw",true,FW_DATA_BACKUP,1);
  const char *bad[]={"wrongchip.json","traversal.json","wronghash.json","protected.json","duplicate.json","unknown.json","bootloader.json","partial.bin","ambiguous.bin","badtable.bin","broken.raw"};

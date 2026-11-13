@@ -9,6 +9,7 @@
 static launcher_config_t config={.bright=80,.dim_s=1,.screen_off_s=2,.idle_clock=true};
 static bool critical;
 static unsigned light;
+static unsigned clock_minute = 34;
 static lv_point_t touch_point;
 static bool touch_down;
 static unsigned underneath_clicks, invalidations;
@@ -23,7 +24,7 @@ bool ui_progress_visible(void) { return false; }
 void board_backlight(uint8_t b) { light=b; }
 lv_display_t *board_display(void) { return lv_display_get_default(); }
 bool time_is_valid(void) { return true; }
-void time_fmt_hhmm(char *b,size_t n) { snprintf(b,n,"12:34"); }
+void time_fmt_hhmm(char *b,size_t n) { snprintf(b,n,"%02u:%02u",(12+clock_minute/60)%24,clock_minute%60); }
 void time_fmt_rest(char *b,size_t n) { struct tm t={.tm_year=124,.tm_mon=1,.tm_mday=29,.tm_wday=4}; time_date_pt(&t,b,n); }
 void ui_assets_init(void) {}
 bool ui_assets_set(lv_obj_t *o,const char *p,unsigned a,unsigned b,unsigned c,unsigned d) { return false; }
@@ -63,5 +64,20 @@ int main(void)
  }
  lv_indev_delete(touch);lv_obj_delete(under);
  critical=true; lv_tick_inc(4000); timer(NULL); assert(!s_overlay&&!s_off); critical=false;
- lv_obj_clean(lv_screen_active()); lv_deinit(); puts("Visual: four clocks, three backgrounds, unchanged clock/date redraw suppression, 16 real pointer wake/release cases, dim/off, first-key wake, critical-operation guard and 100 overlay lifecycles passed (ASan/UBSan).");
+ /* Model the board's RGB565 partial renderer over four hours of changing clocks. */
+ lv_display_set_color_format(d,LV_COLOR_FORMAT_RGB565);
+ lv_display_set_buffers(d,p,NULL,1280*100*2,LV_DISPLAY_RENDER_MODE_PARTIAL);
+ for(unsigned style=0;style<4;style++) {
+  config.clock_style=style;config.screen_off_s=0;lv_tick_inc(1200);timer(NULL);
+  for(unsigned step=0;step<12;step++) {
+   clock_minute+=5;lv_tick_inc(300000);timer(NULL);lv_refr_now(d);
+   assert(s_overlay&&s_clock&&s_date&&!s_off);
+  }
+  config.screen_off_s=2;lv_tick_inc(3000);timer(NULL);assert(s_off);
+  char saved[32];snprintf(saved,sizeof(saved),"%s",lv_label_get_text(s_clock));
+  clock_minute++;lv_tick_inc(60000);timer(NULL);
+  assert(!strcmp(saved,lv_label_get_text(s_clock)));
+  assert(ui_visual_activity());
+ }
+ lv_obj_clean(lv_screen_active()); lv_deinit(); puts("Visual: four clocks, three backgrounds, unchanged clock/date redraw suppression, 16 real pointer wake/release cases, dim/off, first-key wake, critical-operation guard and 100 overlay lifecycles plus four simulated hours of RGB565 partial rendering passed (ASan/UBSan).");
 }

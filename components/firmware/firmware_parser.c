@@ -58,7 +58,9 @@ bool firmware_parse_chip(void *ctx, fw_read_fn read, fw_hash_fn hash, uint32_t s
     uint32_t entry=le32(header+4); bool entry_mapped=false;
     for (unsigned i=0;i<header[1];i++)
         if (starts[i] && entry>=starts[i] && entry-starts[i]<lengths[i]) entry_mapped=true;
-    if (!entry_mapped || (entry&1)) REJECT("Entrada de execucao fora dos segmentos");
+    /* IDF may use a ROM trampoline rather than a loaded segment. */
+    bool rom_entry = chip == FW_P4_CHIP_ID && entry >= 0x4fc00000u && entry < 0x4fc20000u;
+    if ((!entry_mapped && !rom_entry) || (entry&1)) REJECT("Entrada de execucao fora dos segmentos/ROM");
     uint32_t padded=(offset+16)&~15u;
     if (padded>size || !read(ctx,padded-1,buffer,1)) REJECT("Checksum truncado");
     if (buffer[0]!=checksum) REJECT("Checksum invalido");

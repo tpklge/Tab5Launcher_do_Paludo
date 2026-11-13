@@ -13,11 +13,12 @@ with tempfile.TemporaryDirectory() as tmp:
  package={'schema':1,'chip':'esp32p4','app':{'file':'app.bin','sha256':hashlib.sha256(app).hexdigest()},'data':[{'file':'data.bin','sha256':hashlib.sha256(data).hexdigest(),'label':'spiffs'}]}
  (sd/'package.json').write_text(json.dumps(package))
  variants={}
- for name,fn in [('wrongchip',lambda j:j.update(chip='esp32s3')),('traversal',lambda j:j['app'].update(file='../app.bin')),('wronghash',lambda j:j['app'].update(sha256='00'*32)),('protected',lambda j:j['data'][0].update(label='nvs')),('unknown',lambda j:j.update(offset=123)),('bootloader',lambda j:j.update(bootloader={'file':'app.bin'}))]:
+ for name,fn in [('wrongchip',lambda j:j.update(chip='esp32s3')),('traversal',lambda j:j['app'].update(file='../app.bin')),('wronghash',lambda j:j['app'].update(sha256='00'*32)),('protected',lambda j:j['data'][0].update(label='otadata')),('unknown',lambda j:j.update(offset=123)),('bootloader',lambda j:j.update(bootloader={'file':'app.bin'}))]:
   j=copy.deepcopy(package); fn(j); (sd/(name+'.json')).write_text(json.dumps(j))
  (sd/'duplicate.json').write_text(json.dumps(package).replace('"schema": 1','"schema": 1, "schema": 2'))
  rows=[(1,2,0x9000,0x6000,b'nvs',0),(0,0,0x10000,0x100000,b'factory',0),(1,0x82,0x110000,8192,b'spiffs',0)]
  merged=bytearray(b'\xff'*0x112000); t=table(rows); merged[0x8000:0x8000+len(t)]=t; merged[0x10000:0x10000+len(app)]=app; merged[0x110000:]=data
+ (sd/'merged-e9.bin').write_bytes(bytes([0xe9])+bytes(merged[1:])); (sd/'padded.bin').write_bytes(app+b'\xff'*8192)
  (sd/'merged.bin').write_bytes(merged); (sd/'partial.bin').write_bytes(merged[:-4096])
  bad=merged.copy(); bad[0x8010]^=1; (sd/'badtable.bin').write_bytes(bad)
  ambiguous=merged+bytearray(b'\xff'*0x10000); rows.append((0,16,0x120000,0x10000,b'app0',0)); t=table(rows); ambiguous[0x8000:0x8000+len(t)]=t
